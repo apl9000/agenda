@@ -4,13 +4,11 @@ import Foundation
 ///
 /// An opinionated MCP server for interacting with Apple Reminders and Calendar.
 /// Designed for GTD workflows and neurodivergent users.
-
-/// Application version
-let version = "0.1.0"
-
-/// Main entry point
 @main
 struct Agenda {
+    /// Application version
+    static let version = "0.1.0"
+
     static func main() async {
         // Parse command line arguments
         let arguments = CommandLine.arguments

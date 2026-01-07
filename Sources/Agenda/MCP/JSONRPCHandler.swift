@@ -1,5 +1,11 @@
 import Foundation
 
+/// The result of parsing a JSON-RPC request.
+public enum ParseResult: Sendable {
+    case success(JSONRPCRequest)
+    case failure(JSONRPCResponse)
+}
+
 /// Handles parsing and serializing JSON-RPC 2.0 messages.
 ///
 /// This actor provides thread-safe JSON encoding and decoding for
@@ -17,8 +23,8 @@ public actor JSONRPCHandler {
     /// Parses a JSON-RPC request from raw data.
     ///
     /// - Parameter data: The raw JSON data.
-    /// - Returns: A parsed request or a parse error.
-    public func parseRequest(_ data: Data) -> Result<JSONRPCRequest, JSONRPCResponse> {
+    /// - Returns: A parsed request or a parse error response.
+    public func parseRequest(_ data: Data) -> ParseResult {
         do {
             let request = try decoder.decode(JSONRPCRequest.self, from: data)
 
@@ -36,8 +42,8 @@ public actor JSONRPCHandler {
     /// Parses a JSON-RPC request from a string.
     ///
     /// - Parameter string: The JSON string.
-    /// - Returns: A parsed request or a parse error.
-    public func parseRequest(_ string: String) -> Result<JSONRPCRequest, JSONRPCResponse> {
+    /// - Returns: A parsed request or a parse error response.
+    public func parseRequest(_ string: String) -> ParseResult {
         guard let data = string.data(using: .utf8) else {
             return .failure(.parseError())
         }

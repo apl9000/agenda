@@ -53,7 +53,9 @@ public struct InputSchema: Codable, Sendable {
 }
 
 /// JSON Schema for a single property/parameter.
-public struct PropertySchema: Codable, Sendable {
+///
+/// This is a class to allow recursive schemas (arrays of items, nested objects).
+public final class PropertySchema: Codable, Sendable {
     /// The type of the property (string, number, boolean, array, object).
     public let type: String
 
