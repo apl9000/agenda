@@ -258,7 +258,7 @@ MCP protocol uses stdout for JSON-RPC communication. All diagnostic output must 
 
 ## Extension Points
 
-5. Consider: Does this tool reduce cognitive friction? (see [CONSTITUTION.md](CONSTITUTION.md))
+1. Consider: Does this tool reduce cognitive friction? (see [CONSTITUTION.md](CONSTITUTION.md))
 
 ### Adding New EventKit Features
 
@@ -299,10 +299,4 @@ The current architecture is designed to accommodate future enhancements without 
 - **Format**: JSON for simple data, SQLite for timeseries
 - **Backup**: Exportable by user at any time
 
-See [CONSTITUTION.md](CONSTITUTION.md) for the complete development roadmap and architectural vision.s 4. Add tests
-
-### Supporting New MCP Methods
-
-1. Add case to `MCPServer.routeMethod`
-2. Implement handler method
-3. Update protocol version if needed
+See [CONSTITUTION.md](CONSTITUTION.md) for the complete development roadmap and architectural vision.

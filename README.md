@@ -203,7 +203,7 @@ Read the full [CONSTITUTION.md](CONSTITUTION.md) to understand our mission and p
 
 Contributions are welcome! This project is built _for_ the neurodivergent community, and we value diverse perspectives.
 
-See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines, and [CONSTITUTION.md](CONSTITUTION.md) to understand the project's core principl
+See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines, and [CONSTITUTION.md](CONSTITUTION.md) to understand the project's core principles.
 
 ### Run with Debug Logging
 
