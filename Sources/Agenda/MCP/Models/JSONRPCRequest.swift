@@ -36,6 +36,26 @@ public struct JSONRPCRequest: Codable, Sendable {
         self.id = id
     }
 
+    private enum CodingKeys: String, CodingKey {
+        case jsonrpc, method, params, id
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.jsonrpc = try container.decode(String.self, forKey: .jsonrpc)
+        self.method = try container.decode(String.self, forKey: .method)
+        self.params = try container.decodeIfPresent(JSONRPCParams.self, forKey: .params)
+
+        // Distinguish an explicit null id (a valid id that requires a response)
+        // from an absent id (a notification). The synthesized Codable would
+        // treat both as nil.
+        if container.contains(.id) {
+            self.id = try container.decodeIfPresent(JSONRPCId.self, forKey: .id) ?? .null
+        } else {
+            self.id = nil
+        }
+    }
+
     /// Returns true if this is a notification (no id, no response expected).
     public var isNotification: Bool {
         id == nil

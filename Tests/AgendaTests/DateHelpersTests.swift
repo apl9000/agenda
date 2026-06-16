@@ -106,7 +106,9 @@ final class DateHelpersTests: XCTestCase {
 
         XCTAssertNotNil(date)
         if let date = date {
-            let daysDiff = Calendar.current.dateComponents([.day], from: Date(), to: date).day ?? 0
+            // Round rather than truncate: the parsed date is N days from the
+            // moment of parsing, which is a hair before `now` here.
+            let daysDiff = Int((date.timeIntervalSinceNow / 86_400).rounded())
             XCTAssertEqual(daysDiff, 3)
         }
     }
@@ -116,7 +118,7 @@ final class DateHelpersTests: XCTestCase {
 
         XCTAssertNotNil(date)
         if let date = date {
-            let daysDiff = Calendar.current.dateComponents([.day], from: Date(), to: date).day ?? 0
+            let daysDiff = Int((date.timeIntervalSinceNow / 86_400).rounded())
             XCTAssertEqual(daysDiff, 14)
         }
     }
