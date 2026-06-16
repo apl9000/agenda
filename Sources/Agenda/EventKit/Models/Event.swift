@@ -51,6 +51,9 @@ public struct Event: Codable, Sendable, Identifiable {
     /// The organizer's name if available.
     public var organizerName: String?
 
+    /// Category tags extracted from the notes field (e.g. work, health, social).
+    public var tags: [Tag]
+
     /// The creation date of the event.
     public let createdDate: Date?
 
@@ -73,6 +76,7 @@ public struct Event: Codable, Sendable, Identifiable {
         hasAttendees: Bool = false,
         attendeeCount: Int = 0,
         organizerName: String? = nil,
+        tags: [Tag] = [],
         createdDate: Date? = nil,
         lastModifiedDate: Date? = nil
     ) {
@@ -91,6 +95,7 @@ public struct Event: Codable, Sendable, Identifiable {
         self.hasAttendees = hasAttendees
         self.attendeeCount = attendeeCount
         self.organizerName = organizerName
+        self.tags = tags
         self.createdDate = createdDate
         self.lastModifiedDate = lastModifiedDate
     }
@@ -160,6 +165,7 @@ extension Event {
             hasAttendees: ekEvent.hasAttendees,
             attendeeCount: ekEvent.attendees?.count ?? 0,
             organizerName: ekEvent.organizer?.name,
+            tags: ekEvent.notes.map { TagParser.extractTags(from: $0) } ?? [],
             createdDate: ekEvent.creationDate,
             lastModifiedDate: ekEvent.lastModifiedDate
         )
@@ -209,11 +215,16 @@ extension Event {
             "calendarId": .string(calendarId),
             "availability": .string(availability.rawValue),
             "hasAttendees": .bool(hasAttendees),
-            "attendeeCount": .int(attendeeCount)
+            "attendeeCount": .int(attendeeCount),
+            "tags": .array(tags.map { .string($0.name) })
         ]
 
+        // Present notes without internal #hashtags; categories are in `tags`.
         if let notes = notes {
-            dict["notes"] = .string(notes)
+            let humanNotes = TagParser.removeTags(from: notes)
+            if !humanNotes.isEmpty {
+                dict["notes"] = .string(humanNotes)
+            }
         }
 
         if let location = location {

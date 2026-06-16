@@ -76,6 +76,9 @@ extension Tag {
 
     /// Maintenance tag for recurring upkeep that keeps life running (aim for 3/day).
     public static let maintenance = Tag(name: "maintenance")
+
+    /// The 3-3-3 effort tags.
+    public static let effortTags: Set<Tag> = [.deepWork, .quickTask, .maintenance]
 }
 
 // MARK: - Tag Parsing

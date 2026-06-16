@@ -7,6 +7,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Automatic tag inference so users never deal with hashtags. The assistant
+  classifies items via structured params and Agenda fills any gaps with keyword
+  heuristics:
+  - Reminders gain `gtd_status`, `effort`, and `contexts` params
+  - Events gain a `categories` param
+  - New pure, unit-tested `TagInference` engine
+- MCP server `instructions` telling the assistant to infer classifications
+  silently and never surface tags/hashtags to the user
+- Events now carry inferred category tags (exposed via `tags`)
+
+### Changed
+
+- Reminder/event `notes` are returned without internal #hashtags; classification
+  is surfaced via the `tags` array instead
+- **Breaking (pre-1.0):** `create_reminder` drops the freeform `tags` param and
+  `update_reminder` drops `add_tags`/`remove_tags`, replaced by `gtd_status` /
+  `effort` / `contexts`
+
 ## [0.2.0] - 2026-06-16
 
 ### Added

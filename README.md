@@ -19,7 +19,7 @@ Agenda isn't just a thin wrapper over EventKit. On top of full CRUD it adds tool
 - **Full Reminders integration** — create, read, update, complete, delete; move reminders between lists; bulk complete/delete.
 - **Full list management** — create, rename, and delete reminder lists.
 - **Full Calendar integration** — manage events with natural-language dates.
-- **Tag-based GTD** — `#hashtags` in notes drive contexts like `#inbox`, `#next-action`, `#waiting-on`.
+- **Automatic GTD organization** — the assistant infers GTD status, effort, and contexts from what you say; you never learn or type a tag.
 - **Opinionated planning** — `whats_next`, `plan_my_day`, `weekly_review`.
 - **Natural-language dates** — "tomorrow", "next monday", "in 2 hours".
 - **Actionable-task validation** — gentle warnings when a title looks vague.
@@ -139,26 +139,19 @@ Plan my day
 Create a list called "Errands", then move the reminder about groceries into it
 ```
 
-## Tag System
+## Organization (you never type a tag)
 
-Agenda extracts `#hashtags` from reminder notes automatically — they're visible in the native Reminders app and add no friction.
+Agenda organizes your reminders and events for you. **You never have to learn or type a tag.** When you ask the assistant to add something, it infers the classification from what you said, and Agenda fills in anything it missed with built-in heuristics. The classification is stored invisibly (as `#hashtags` in notes, which the tools strip from what you see) and powers `whats_next`, `plan_my_day`, and `weekly_review`.
 
-### GTD context tags
+Under the hood, reminders are classified by:
 
-- `#inbox` — uncategorized, needs processing
-- `#next-action` — ready to do right now
-- `#waiting-on` — blocked on someone else
-- `#someday-maybe` — deferred for later
-- `#project` — multi-step outcome
-- `#reference` — non-actionable reference material
+- **GTD status** — `inbox`, `next-action`, `waiting-on`, `someday-maybe`, `project`, `reference`
+- **Effort (3-3-3)** — `deep-work`, `quick-task`, `maintenance`
+- **Contexts** — where/how it gets done, e.g. `errands`, `calls`, `home`, `computer`, `finance`, `health`
 
-### The 3-3-3 framework
+Events are classified by **categories** (e.g. `work`, `health`, `social`, `travel`, `personal`).
 
-A calm daily structure that `plan_my_day` builds around:
-
-- `#deep-work` — focused, high-energy work (aim for ~3 hours)
-- `#quick-task` — under ~15 minutes (aim for 3)
-- `#maintenance` — keeps life running (aim for 3)
+You can still steer it ("make this a someday-maybe", "that's deep work") — but you never have to.
 
 ## Development
 

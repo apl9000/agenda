@@ -64,7 +64,10 @@ All managers and handlers are actors: `MCPServer`, `ToolRegistry`, `PermissionsH
 Tools implement `MCPTool` protocol with `name`, `description`, `inputSchema`, and async `execute(params:)`.
 
 ### Tag System
-Tags are #hashtags extracted from reminder notes. GTD contexts: `#inbox`, `#next-action`, `#waiting-on`, `#someday-maybe`, `#project`, `#reference`. 3-3-3 framework: `#deep-work`, `#quick-task`, `#maintenance`.
+Tags are #hashtags stored in reminder/event notes — an internal mechanism users never see or type. GTD contexts: `#inbox`, `#next-action`, `#waiting-on`, `#someday-maybe`, `#project`, `#reference`. 3-3-3 framework: `#deep-work`, `#quick-task`, `#maintenance`. Notes are returned with hashtags stripped; classification is surfaced via the `tags` array.
+
+### Tag Inference
+`Sources/Agenda/Utilities/TagInference.swift` is the pure engine that turns structured tool params (`gtd_status`/`effort`/`contexts` for reminders, `categories` for events) into tags, filling gaps with keyword heuristics. The assistant is told to classify items itself via the MCP server `instructions` (in `MCPServer.swift`). Keep it pure/testable.
 
 ### Opinionated Planning
 `Sources/Agenda/Utilities/Planner.swift` holds the pure (no EventKit) ranking/planning/review logic behind the planning tools. Keep it pure so it stays unit-testable on any platform.

@@ -72,13 +72,16 @@ public struct CreateReminderTool: MCPTool {
     public let description = """
         Create a new reminder with title, optional notes, due date, and list. \
         Supports natural language dates like 'tomorrow' or 'next monday'. \
-        Tags can be included as #hashtags in notes or via the tags parameter.
+
+        You (the assistant) classify the reminder so Agenda can organize it — infer \
+        gtd_status, effort, and contexts from the task itself. The user never needs to \
+        provide these, and you should not mention tags or hashtags to them.
         """
 
     public let inputSchema = InputSchema(
         properties: [
             "title": .string(description: "The reminder title (should be actionable, starting with a verb)"),
-            "notes": .string(description: "Additional notes for the reminder (can include #tags)"),
+            "notes": .string(description: "Additional notes for the reminder (plain text; do not add hashtags)"),
             "due_date": .string(
                 description: "Due date (ISO 8601 or natural language like 'tomorrow', 'next friday')",
                 format: "date-time"
@@ -88,9 +91,20 @@ public struct CreateReminderTool: MCPTool {
                 ["none", "low", "medium", "high"],
                 description: "Priority level (default: none)"
             ),
-            "tags": .array(
-                of: .string(description: "Tag name without # prefix"),
-                description: "Tags to add to the reminder"
+            "gtd_status": .enum(
+                ["inbox", "next-action", "waiting-on", "someday-maybe", "project", "reference"],
+                description: "GTD status inferred from the task. Most concrete to-dos are 'next-action'; "
+                    + "use 'waiting-on' when blocked on someone, 'someday-maybe' for vague/future ideas, "
+                    + "'project' for multi-step outcomes. Leave unset to let Agenda infer it."
+            ),
+            "effort": .enum(
+                ["deep-work", "quick-task", "maintenance"],
+                description: "3-3-3 effort inferred from the task: 'deep-work' for focused/creative work, "
+                    + "'quick-task' for things under ~15 min, 'maintenance' for routine upkeep. Optional."
+            ),
+            "contexts": .array(
+                of: .string(description: "A short context like 'errands', 'calls', 'home', 'computer', 'finance', 'health'"),
+                description: "Where/how the task gets done, inferred from the task. Optional; Agenda infers when omitted."
             )
         ],
         required: ["title"]
@@ -106,7 +120,10 @@ public struct CreateReminderTool: MCPTool {
         let title = try params.requireString("title")
         let notes = try params.optionalString("notes")
         let listName = try params.optionalString("list")
-        let tags = try params.optionalStringArray("tags") ?? []
+
+        let gtdStatus = TagInference.GTDStatus.parse(try params.optionalString("gtd_status"))
+        let effort = TagInference.Effort.parse(try params.optionalString("effort"))
+        let contexts = try params.optionalStringArray("contexts") ?? []
 
         var dueDate: Date?
         if let dueDateString = try params.optionalString("due_date") {
@@ -117,6 +134,15 @@ public struct CreateReminderTool: MCPTool {
         }
 
         let priority = try parsePriority(from: params)
+
+        // The assistant classifies; Agenda fills any gaps with keyword heuristics.
+        let tags = TagInference.inferReminderTags(
+            title: title,
+            notes: notes,
+            gtdStatus: gtdStatus,
+            effort: effort,
+            contexts: contexts
+        ).map { $0.name }
 
         let reminder = try await manager.createReminder(
             title: title,
@@ -184,14 +210,16 @@ public struct UpdateReminderTool: MCPTool {
 
     public let description = """
         Update an existing reminder. All fields are optional - only provide fields you want to change. \
-        To clear the due date, set due_date to null.
+        To clear the due date, set due_date to null. To re-classify the reminder, set gtd_status, \
+        effort, or contexts (these replace the existing classification in that category; other \
+        categories are preserved). Do not mention tags or hashtags to the user.
         """
 
     public let inputSchema = InputSchema(
         properties: [
             "id": .string(description: "The reminder ID to update"),
             "title": .string(description: "New title for the reminder"),
-            "notes": .string(description: "New notes (replaces existing notes including tags)"),
+            "notes": .string(description: "New notes (plain text; classification is preserved automatically)"),
             "due_date": .string(
                 description: "New due date (ISO 8601 or natural language), or null to clear",
                 format: "date-time"
@@ -201,13 +229,17 @@ public struct UpdateReminderTool: MCPTool {
                 description: "New priority level"
             ),
             "list": .string(description: "Move the reminder to this list (by name)"),
-            "add_tags": .array(
-                of: .string(description: "Tag name without # prefix"),
-                description: "Tags to add to existing notes"
+            "gtd_status": .enum(
+                ["inbox", "next-action", "waiting-on", "someday-maybe", "project", "reference"],
+                description: "New GTD status (replaces the current one)"
             ),
-            "remove_tags": .array(
-                of: .string(description: "Tag name without # prefix"),
-                description: "Tags to remove from notes"
+            "effort": .enum(
+                ["deep-work", "quick-task", "maintenance"],
+                description: "New 3-3-3 effort category (replaces the current one)"
+            ),
+            "contexts": .array(
+                of: .string(description: "A short context like 'errands', 'calls', 'home'"),
+                description: "New set of contexts (replaces all existing contexts)"
             )
         ],
         required: ["id"]
@@ -222,10 +254,13 @@ public struct UpdateReminderTool: MCPTool {
     public func execute(params: [String: JSONValue]) async throws -> ToolResult {
         let id = try params.requireString("id")
         let title = try params.optionalString("title")
-        let notes = try params.optionalString("notes")
+        let providedNotes = try params.optionalString("notes")
         let listName = try params.optionalString("list")
-        let addTags = try params.optionalStringArray("add_tags") ?? []
-        let removeTags = try params.optionalStringArray("remove_tags") ?? []
+
+        let gtdStatus = TagInference.GTDStatus.parse(try params.optionalString("gtd_status"))
+        let effort = TagInference.Effort.parse(try params.optionalString("effort"))
+        // nil = leave contexts untouched; [] = clear contexts.
+        let contexts = try params.optionalStringArray("contexts")
 
         // Handle due date (can be string or null to clear)
         var dueDate: Date??
@@ -251,15 +286,30 @@ public struct UpdateReminderTool: MCPTool {
             }
         }
 
+        // Re-derive notes (carrying the hidden classification tags) only when the
+        // notes text or a classification actually changed, so editing unrelated
+        // fields leaves the stored notes and tags exactly as they were.
+        let reclassifies = gtdStatus != nil || effort != nil || contexts != nil
+        var notes: String?
+        if providedNotes != nil || reclassifies {
+            let current = try await manager.getReminder(id: id)
+            let humanNotes = providedNotes ?? TagParser.removeTags(from: current.notes ?? "")
+            let desiredTags = TagInference.reconcileReminderTags(
+                current: current.tags,
+                gtdStatus: gtdStatus,
+                effort: effort,
+                contexts: contexts
+            )
+            notes = TagParser.addTags(desiredTags, to: humanNotes)
+        }
+
         let reminder = try await manager.updateReminder(
             id: id,
             title: title,
             notes: notes,
             dueDate: dueDate,
             priority: priority,
-            listName: listName,
-            addTags: addTags,
-            removeTags: removeTags
+            listName: listName
         )
 
         return .json(reminder.toJSONValue())
