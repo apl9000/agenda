@@ -200,6 +200,7 @@ public struct UpdateReminderTool: MCPTool {
                 ["none", "low", "medium", "high"],
                 description: "New priority level"
             ),
+            "list": .string(description: "Move the reminder to this list (by name)"),
             "add_tags": .array(
                 of: .string(description: "Tag name without # prefix"),
                 description: "Tags to add to existing notes"
@@ -222,6 +223,7 @@ public struct UpdateReminderTool: MCPTool {
         let id = try params.requireString("id")
         let title = try params.optionalString("title")
         let notes = try params.optionalString("notes")
+        let listName = try params.optionalString("list")
         let addTags = try params.optionalStringArray("add_tags") ?? []
         let removeTags = try params.optionalStringArray("remove_tags") ?? []
 
@@ -255,6 +257,7 @@ public struct UpdateReminderTool: MCPTool {
             notes: notes,
             dueDate: dueDate,
             priority: priority,
+            listName: listName,
             addTags: addTags,
             removeTags: removeTags
         )

@@ -1,51 +1,46 @@
 # Agenda
 
-An AI-powered MCP (Model Context Protocol) server that transforms Apple Reminders into an intelligent productivity system, specifically designed for people with ADHD and dyslexia. Combines Getting Things Done (GTD) methodology with the 3-3-3 framework to provide executive function support and reduce cognitive load.
+An opinionated [MCP](https://modelcontextprotocol.io) (Model Context Protocol) server that turns Apple Reminders into a system for actually getting things done. Agenda gives an AI assistant (Claude Desktop, VS Code, etc.) full control of your reminders and calendar, with built-in [GTD](https://gettingthingsdone.com/) structure and a point of view designed to reduce cognitive load — especially for ADHD and dyslexic brains.
 
 ## Mission
 
-Build compassionate, neurodivergent-first productivity tools that honor different ways of thinking and working—offering clarity without judgment, intelligence without pressure, and privacy without compromise.
+Build compassionate, neurodivergent-first productivity tools that honor different ways of thinking and working — offering clarity without judgment, structure without pressure, and privacy without compromise. See [CONSTITUTION.md](CONSTITUTION.md) for the full vision.
+
+## What makes it opinionated
+
+Agenda isn't just a thin wrapper over EventKit. On top of full CRUD it adds tools that make a decision *for* you:
+
+- **`whats_next`** — ranks your open reminders by what's overdue, due today, tagged `#next-action`, and high priority, then hands back the *single* best thing to do. Antidote to decision paralysis.
+- **`plan_my_day`** — builds a [3-3-3](#the-3-3-3-framework) plan: 3 deep-work items, 3 quick tasks, 3 maintenance items, plus what's overdue and due today.
+- **`weekly_review`** — a GTD review that surfaces unclarified tasks, stale `#inbox` items, `#waiting-on` follow-ups, and overdue work so nothing slips.
 
 ## Features
 
-### Current (Phase 0)
-
-- **Full Reminders Integration**: Create, update, complete, and delete reminders
-- **Full Calendar Integration**: Manage calendar events with natural language date parsing
-- **Tag Support**: Extract and manage #hashtags from reminder notes
-- **GTD Ready**: Built-in support for GTD contexts (#inbox, #next-action, #waiting-on, etc.)
-- **Natural Language Dates**: "tomorrow", "next monday", "in 2 hours"
-- **Actionable Task Validation**: Warns about vague or non-actionable task titles
-
-### Coming Soon (Phase 1+)
-
-- **AI-Powered Clarification**: Automatically detect and help clarify vague tasks
-- **Energy Level Tracking**: Match tasks to your current energy state
-- **3-3-3 Daily Planning**: Structure your day with 3 deep work hours, 3 short tasks, 3 maintenance items
-- **Pattern Learning**: System learns your rhythms and preferences over time
-- **Executive Function Support**: Built-in support for ADHD challenges like time blindness and task initiation
-
-See [CONSTITUTION.md](CONSTITUTION.md) for the complete vision and roadmap.
+- **Full Reminders integration** — create, read, update, complete, delete; move reminders between lists; bulk complete/delete.
+- **Full list management** — create, rename, and delete reminder lists.
+- **Full Calendar integration** — manage events with natural-language dates.
+- **Tag-based GTD** — `#hashtags` in notes drive contexts like `#inbox`, `#next-action`, `#waiting-on`.
+- **Opinionated planning** — `whats_next`, `plan_my_day`, `weekly_review`.
+- **Natural-language dates** — "tomorrow", "next monday", "in 2 hours".
+- **Actionable-task validation** — gentle warnings when a title looks vague.
+- **Local-first & private** — all data stays in your Apple account; no telemetry.
 
 ## Requirements
 
 - macOS 14.0 (Sonoma) or later
-- Swift 5.9+
-- Xcode 15+ (for building)
+- Swift 5.9+ (Xcode 15+) to build from source
 
 ## Installation
 
-### Build from Source
+### Build from source
 
 ```bash
-git clone https://github.com/yourusername/agenda.git
+git clone https://github.com/apl9000/agenda.git
 cd agenda
 swift build -c release
 ```
 
-The binary will be at `.build/release/agenda`.
-
-### Install to /usr/local/bin
+The binary will be at `.build/release/agenda`. Optionally install it:
 
 ```bash
 sudo cp .build/release/agenda /usr/local/bin/
@@ -67,170 +62,133 @@ Add to `~/Library/Application Support/Claude/claude_desktop_config.json`:
 }
 ```
 
-Or if using the build directory:
-
-```json
-{
-  "mcpServers": {
-    "agenda": {
-      "command": "/path/to/agenda/.build/release/agenda"
-    }
-  }
-}
-```
+(Or point `command` at `/path/to/agenda/.build/release/agenda`.)
 
 ### VS Code
 
-Configure in your VS Code MCP settings to point to the agenda binary.
+Configure your MCP settings to launch the `agenda` binary over stdio.
 
 ## Permissions
 
-On first use, macOS will prompt for access to:
-
-- **Reminders**: Required for reminder functionality
-- **Calendar**: Required for calendar functionality
-
-Grant access in **System Settings > Privacy & Security > Reminders/Calendars**.
+On first use, macOS prompts for access to **Reminders** and **Calendar**. If a tool reports a permission error, run the `check_permissions` tool, then grant access in **System Settings → Privacy & Security → Reminders / Calendars**.
 
 ## Available Tools
 
 ### Reminders
 
-| Tool                  | Description                                                   |
+| Tool                  | Description                                                    |
 | --------------------- | ------------------------------------------------------------- |
-| `list_reminders`      | List reminders with filtering by list, status, tags, due date |
-| `create_reminder`     | Create a new reminder with title, notes, due date, priority   |
+| `list_reminders`      | List reminders, filtered by list, status, tag, or due date    |
+| `create_reminder`     | Create a reminder with title, notes, due date, priority, tags |
 | `get_reminder`        | Get full details of a specific reminder                       |
-| `update_reminder`     | Update an existing reminder                                   |
-| `complete_reminder`   | Mark a reminder as complete                                   |
-| `delete_reminder`     | Delete a reminder                                             |
-| `list_reminder_lists` | Get all available reminder lists                              |
+| `update_reminder`     | Update a reminder, including moving it to another list         |
+| `complete_reminder`   | Mark a reminder complete                                       |
+| `delete_reminder`     | Delete a reminder                                              |
+| `complete_reminders`  | Complete many reminders in one call                           |
+| `delete_reminders`    | Delete many reminders in one call                             |
+
+### Lists
+
+| Tool                   | Description                              |
+| ---------------------- | ---------------------------------------- |
+| `list_reminder_lists`  | Get all reminder lists                   |
+| `create_reminder_list` | Create a new list                        |
+| `rename_reminder_list` | Rename a list                            |
+| `delete_reminder_list` | Delete a list and all its reminders      |
+
+### Planning (opinionated)
+
+| Tool            | Description                            |
+| --------------- | ------------------------------------- |
+| `whats_next`    | Recommend the single best next action |
+| `plan_my_day`   | Build a 3-3-3 plan for today          |
+| `weekly_review` | GTD-style review of open loops        |
 
 ### Calendar
 
-| Tool             | Description                                           |
-| ---------------- | ----------------------------------------------------- |
-| `list_events`    | List events with filtering by calendar and date range |
-| `create_event`   | Create a new calendar event                           |
-| `get_event`      | Get full details of a specific event                  |
-| `update_event`   | Update an existing event                              |
-| `delete_event`   | Delete an event                                       |
-| `list_calendars` | Get all available calendars                           |
+| Tool             | Description                            |
+| ---------------- | -------------------------------------- |
+| `list_events`    | List events by calendar and date range |
+| `create_event`   | Create a new event                     |
+| `get_event`      | Get details of a specific event        |
+| `update_event`   | Update an event                        |
+| `delete_event`   | Delete an event                        |
+| `list_calendars` | Get all calendars                      |
+
+### Utility
+
+| Tool                | Description                                 |
+| ------------------- | ------------------------------------------- |
+| `check_permissions` | Check / request Reminders & Calendar access |
 
 ## Usage Examples
 
-### List Today's Reminders
-
 ```
-Use list_reminders to show incomplete reminders due today
+Create a reminder "Call dentist to schedule cleaning" with tag #next-action due tomorrow
 ```
 
-### Create a Reminder with GTD Tag
-
 ```
-Create a reminder "Call dentist to schedule appointment" with tag #next-action due tomorrow
+What should I work on next?
 ```
 
-### Show This Week's Events
+```
+Plan my day
+```
 
-````🏷️ Tag System
+```
+Create a list called "Errands", then move the reminder about groceries into it
+```
 
-Agenda extracts #hashtags from reminder notes automatically. The tag system is designed to support both GTD methodology and ADHD-friendly workflows:
-
-### GTD Phase Tags
-- `#inbox` - Uncategorized items needing processing
-- `#clarify` - Needs to be made more actionable
-- `#next-action` - Ready to be done right now
-- `#waiting-on` - Blocked on someone else
-- `#someday-maybe` - Deferred for later
-- `#project` - Multi-step outcomes
-- `#reference` - Non-actionable reference material
-
-### 3-3-3 Framework Tags
-- `#deep-work` - Requires focused, creative energy (aim for 3 hours daily)
-- `#quick-task` - Can be done in < 15 minutes (aim for 3 daily)
-- `#maintenance` - Keeps life running smoothly (aim for 3 daily)
-
-### Context Tags
-- `#computer` - Requires a computer
-- `#home` - Can only be done at home
-- `#errands` - Out-and-about tasks
-- `#short-call` - Quick phone call
-
-### Energy Tags
-- `#flow-time` - Best during peak focus hours
-- `#low-energy` - Good for tired times
-
-See [CONSTITUTION.md](CONSTITUTION.md) for more details on the tag system philosophy.
 ## Tag System
 
-Agenda extracts #hashtags from reminder notes automatically. Standard GTD tags:
+Agenda extracts `#hashtags` from reminder notes automatically — they're visible in the native Reminders app and add no friction.
 
-- `#inbox` - Uncategorized items needing processing
-- `#next-action` - Ready to be done
-- `#waiting-on` - Blocked on someone else
-- `#someday-maybe` - Deferred for later
-- `#project` - Multi-step outcomes
-- `#reference` - Non-actionable reference material
+### GTD context tags
+
+- `#inbox` — uncategorized, needs processing
+- `#next-action` — ready to do right now
+- `#waiting-on` — blocked on someone else
+- `#someday-maybe` — deferred for later
+- `#project` — multi-step outcome
+- `#reference` — non-actionable reference material
+
+### The 3-3-3 framework
+
+A calm daily structure that `plan_my_day` builds around:
+
+- `#deep-work` — focused, high-energy work (aim for ~3 hours)
+- `#quick-task` — under ~15 minutes (aim for 3)
+- `#maintenance` — keeps life running (aim for 3)
 
 ## Development
 
-### Build
-
 ```bash
-swift build
-````
+swift build               # build
+swift run agenda          # run
+swift run agenda --debug  # run with stderr debug logging
+swift test                # run tests
+swift test --filter PlannerTests  # run one suite
+```
 
-## Core Values
-
-Agenda is built on five core values:
-
-1. **Neurodivergent-First Design** - Every feature evaluated through the lens of ADHD and dyslexia needs
-2. **Radical Clarity** - Tasks must be concrete and actionable, no vague language
-3. **Compassionate Intelligence** - AI that encourages, not judges
-4. **Privacy & Control** - All data stays on device, you own everything
-5. **Interoperability** - Works seamlessly with the Apple ecosystem
-
-Read the full [CONSTITUTION.md](CONSTITUTION.md) to understand our mission and principles.
+The opinionated planning logic in `Sources/Agenda/Utilities/Planner.swift` is pure and fully unit-tested independent of EventKit.
 
 ## Documentation
 
-- **[CONSTITUTION.md](CONSTITUTION.md)** - Mission, values, and product roadmap
-- **[ARCHITECTURE.md](ARCHITECTURE.md)** - Technical design and implementation details
-- **[CONTRIBUTING.md](CONTRIBUTING.md)** - Guidelines for contributors
+- **[CONSTITUTION.md](CONSTITUTION.md)** — mission, values, and roadmap
+- **[ARCHITECTURE.md](ARCHITECTURE.md)** — technical design
+- **[CONTRIBUTING.md](CONTRIBUTING.md)** — contributor guidelines
+- **[CHANGELOG.md](CHANGELOG.md)** — release history
 
 ## Contributing
 
-Contributions are welcome! This project is built _for_ the neurodivergent community, and we value diverse perspectives.
-
-See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines, and [CONSTITUTION.md](CONSTITUTION.md) to understand the project's core principles.
-
-### Run with Debug Logging
-
-```bash
-swift run agenda --debug
-```
-
-### Test
-
-```bash
-swift test
-```
-
-## Architecture
-
-See [ARCHITECTURE.md](ARCHITECTURE.md) for technical design details.
-
-## Contributing
-
-See [CONTRIBUTING.md](CONTRIBUTING.md) for contribution guidelines.
+Contributions are welcome — this project is built *for* the neurodivergent community and values diverse perspectives. See [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## License
 
-MIT License - see [LICENSE](LICENSE) for details.
+MIT License — see [LICENSE](LICENSE).
 
 ## Acknowledgments
 
 - Built on Apple's EventKit framework
-- Implements the [Model Context Protocol](https://modelcontextprotocol.io) specification
-- Inspired by GTD methodology by David Allen
+- Implements the [Model Context Protocol](https://modelcontextprotocol.io)
+- Inspired by GTD (David Allen) and the 3-3-3 framework

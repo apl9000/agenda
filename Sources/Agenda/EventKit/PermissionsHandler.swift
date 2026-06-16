@@ -207,8 +207,8 @@ public actor PermissionsHandler {
         }
 
         // If both failed, throw the first error
-        if !errors.isEmpty {
-            throw errors.first!
+        if let firstError = errors.first {
+            throw firstError
         }
     }
 

@@ -52,11 +52,16 @@ Sources/Agenda/
 │       ├── Event.swift            # Event domain model
 │       └── Tag.swift              # Tag parsing and GTD support
 ├── Tools/
-│   ├── ReminderTools.swift    # Reminder MCP tools
+│   ├── ReminderTools.swift    # Reminder CRUD MCP tools
+│   ├── ListTools.swift        # Reminder list management tools
+│   ├── BulkTools.swift        # Bulk complete/delete tools
+│   ├── PlanningTools.swift    # whats_next / plan_my_day / weekly_review
+│   ├── PermissionTools.swift  # check_permissions
 │   └── CalendarTools.swift    # Calendar MCP tools
 └── Utilities/
     ├── Logger.swift           # stderr logging
-    └── DateHelpers.swift      # Date parsing utilities
+    ├── DateHelpers.swift      # Date parsing utilities
+    └── Planner.swift          # Pure opinionated ranking/planning/review logic
 ```
 
 ## Core Components
