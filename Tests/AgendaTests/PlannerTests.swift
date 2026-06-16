@@ -44,7 +44,7 @@ final class PlannerTests: XCTestCase {
 
     func testRankExcludesCompleted() {
         let reminders = [
-            makeReminder(id: "1", isCompleted: true, dueDate: daysFromNow(-1)),
+            makeReminder(id: "1", dueDate: daysFromNow(-1), isCompleted: true),
             makeReminder(id: "2", dueDate: daysFromNow(-1))
         ]
         let ranked = Planner.rankNextActions(reminders, now: now)
