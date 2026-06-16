@@ -112,6 +112,8 @@ public struct Event: Codable, Sendable, Identifiable {
                 self = .tentative
             case .unavailable:
                 self = .unavailable
+            case .notSupported:
+                self = .busy
             @unknown default:
                 self = .busy
             }

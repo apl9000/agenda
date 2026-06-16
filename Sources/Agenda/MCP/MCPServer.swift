@@ -143,6 +143,12 @@ public actor MCPServer {
             return .success(result: result, id: id)
         } catch let error as JSONRPCError {
             return .error(error, id: id)
+        } catch let error as PermissionError {
+            return .error(error.jsonRPCError, id: id)
+        } catch let error as ReminderError {
+            return .error(error.jsonRPCError, id: id)
+        } catch let error as CalendarError {
+            return .error(error.jsonRPCError, id: id)
         } catch let error as ParameterError {
             return .error(.invalidParams(error.localizedDescription), id: id)
         } catch {
@@ -208,8 +214,9 @@ public actor MCPServer {
     private func handleToolsList() async throws -> JSONValue {
         let definitions = await toolRegistry.allDefinitions()
 
-        let tools = try definitions.map { definition -> JSONValue in
-            try await jsonRPCHandler.encodeToJSONValue(definition)
+        var tools: [JSONValue] = []
+        for definition in definitions {
+            tools.append(try await jsonRPCHandler.encodeToJSONValue(definition))
         }
 
         return .object([
