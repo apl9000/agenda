@@ -134,8 +134,9 @@ public func logDebug(
     function: String = #function,
     line: Int = #line
 ) {
+    let evaluated = message()
     Task {
-        await Logger.shared.debug(message(), file: file, function: function, line: line)
+        await Logger.shared.debug(evaluated, file: file, function: function, line: line)
     }
 }
 
@@ -146,8 +147,9 @@ public func logInfo(
     function: String = #function,
     line: Int = #line
 ) {
+    let evaluated = message()
     Task {
-        await Logger.shared.info(message(), file: file, function: function, line: line)
+        await Logger.shared.info(evaluated, file: file, function: function, line: line)
     }
 }
 
@@ -158,8 +160,9 @@ public func logWarning(
     function: String = #function,
     line: Int = #line
 ) {
+    let evaluated = message()
     Task {
-        await Logger.shared.warning(message(), file: file, function: function, line: line)
+        await Logger.shared.warning(evaluated, file: file, function: function, line: line)
     }
 }
 
@@ -170,7 +173,8 @@ public func logError(
     function: String = #function,
     line: Int = #line
 ) {
+    let evaluated = message()
     Task {
-        await Logger.shared.error(message(), file: file, function: function, line: line)
+        await Logger.shared.error(evaluated, file: file, function: function, line: line)
     }
 }

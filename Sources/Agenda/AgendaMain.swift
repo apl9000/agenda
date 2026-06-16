@@ -187,22 +187,28 @@ struct Agenda {
         await server.run()
     }
 
+    /// Retains the dispatch signal sources for the lifetime of the process.
+    ///
+    /// `signal(2)` requires a context-free C function pointer, so we cannot
+    /// capture `server` in a plain handler. `DispatchSource` signal sources can
+    /// capture context, but must be retained or they stop firing.
+    private static var signalSources: [DispatchSourceSignal] = []
+
     /// Sets up signal handlers for graceful shutdown.
     static func setupSignalHandlers(server: MCPServer) {
-        // Handle SIGINT (Ctrl+C)
-        signal(SIGINT) { _ in
-            Task {
-                await Logger.shared.info("Received SIGINT, shutting down...")
-                await server.stop()
-            }
-        }
+        for sig in [SIGINT, SIGTERM] {
+            // Ignore the default disposition so the dispatch source receives it.
+            signal(sig, SIG_IGN)
 
-        // Handle SIGTERM
-        signal(SIGTERM) { _ in
-            Task {
-                await Logger.shared.info("Received SIGTERM, shutting down...")
-                await server.stop()
+            let source = DispatchSource.makeSignalSource(signal: Int(sig), queue: .global())
+            source.setEventHandler {
+                Task {
+                    await Logger.shared.info("Received signal \(sig), shutting down...")
+                    await server.stop()
+                }
             }
+            source.resume()
+            signalSources.append(source)
         }
     }
 }
