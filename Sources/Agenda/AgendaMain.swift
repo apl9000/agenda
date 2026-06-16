@@ -200,7 +200,7 @@ struct Agenda {
             // Ignore the default disposition so the dispatch source receives it.
             signal(sig, SIG_IGN)
 
-            let source = DispatchSource.makeSignalSource(signal: Int(sig), queue: .global())
+            let source = DispatchSource.makeSignalSource(signal: sig, queue: .global())
             source.setEventHandler {
                 Task {
                     await Logger.shared.info("Received signal \(sig), shutting down...")
