@@ -129,6 +129,123 @@ public actor RemindersManager {
         return await eventStore.defaultCalendarForNewReminders()
     }
 
+    /// Picks the best source to host a new reminder list.
+    ///
+    /// Prefers the source of the default reminder list, then any synced
+    /// (CalDAV/iCloud) source, falling back to a local source.
+    private func bestSourceForNewList(in store: EKEventStore) -> EKSource? {
+        if let defaultSource = store.defaultCalendarForNewReminders()?.source {
+            return defaultSource
+        }
+        let sources = store.sources
+        if let synced = sources.first(where: { $0.sourceType == .calDAV }) {
+            return synced
+        }
+        if let local = sources.first(where: { $0.sourceType == .local }) {
+            return local
+        }
+        return sources.first
+    }
+
+    /// Creates a new reminder list.
+    ///
+    /// - Parameter name: The name for the new list.
+    /// - Returns: The identifier and name of the created list.
+    /// - Throws: If a list with the same name already exists or saving fails.
+    public func createList(named name: String) async throws -> (id: String, name: String) {
+        try await ensureAccess()
+
+        let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else {
+            throw ReminderError.invalidData("List name cannot be empty")
+        }
+
+        if try await getList(named: trimmed) != nil {
+            throw ReminderError.invalidData("A reminder list named '\(trimmed)' already exists")
+        }
+
+        let store = await eventStore
+
+        guard let source = bestSourceForNewList(in: store) else {
+            throw ReminderError.invalidData("No available account to create a reminder list in")
+        }
+
+        let calendar = EKCalendar(for: .reminder, eventStore: store)
+        calendar.title = trimmed
+        calendar.source = source
+
+        do {
+            try store.saveCalendar(calendar, commit: true)
+            await Logger.shared.info("Created reminder list: \(trimmed)")
+        } catch {
+            await Logger.shared.error("Failed to create list: \(error)")
+            throw ReminderError.failedToSave(error.localizedDescription)
+        }
+
+        return (calendar.calendarIdentifier, calendar.title)
+    }
+
+    /// Renames an existing reminder list.
+    ///
+    /// - Parameters:
+    ///   - oldName: The current list name.
+    ///   - newName: The new list name.
+    /// - Returns: The identifier and new name of the list.
+    public func renameList(from oldName: String, to newName: String) async throws -> (id: String, name: String) {
+        try await ensureAccess()
+
+        let trimmed = newName.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else {
+            throw ReminderError.invalidData("New list name cannot be empty")
+        }
+
+        guard let calendar = try await getList(named: oldName) else {
+            throw ReminderError.listNotFound(oldName)
+        }
+
+        guard calendar.allowsContentModifications else {
+            throw ReminderError.failedToSave("List '\(oldName)' is read-only and cannot be renamed")
+        }
+
+        let store = await eventStore
+        calendar.title = trimmed
+
+        do {
+            try store.saveCalendar(calendar, commit: true)
+            await Logger.shared.info("Renamed reminder list '\(oldName)' to '\(trimmed)'")
+        } catch {
+            await Logger.shared.error("Failed to rename list: \(error)")
+            throw ReminderError.failedToSave(error.localizedDescription)
+        }
+
+        return (calendar.calendarIdentifier, calendar.title)
+    }
+
+    /// Deletes a reminder list and all of its reminders.
+    ///
+    /// - Parameter name: The name of the list to delete.
+    public func deleteList(named name: String) async throws {
+        try await ensureAccess()
+
+        guard let calendar = try await getList(named: name) else {
+            throw ReminderError.listNotFound(name)
+        }
+
+        guard calendar.allowsContentModifications else {
+            throw ReminderError.failedToDelete("List '\(name)' is read-only and cannot be deleted")
+        }
+
+        let store = await eventStore
+
+        do {
+            try store.removeCalendar(calendar, commit: true)
+            await Logger.shared.info("Deleted reminder list: \(name)")
+        } catch {
+            await Logger.shared.error("Failed to delete list: \(error)")
+            throw ReminderError.failedToDelete(error.localizedDescription)
+        }
+    }
+
     // MARK: - List Reminders
 
     /// Lists reminders with optional filtering.
@@ -323,6 +440,7 @@ public actor RemindersManager {
     ///   - notes: New notes (optional).
     ///   - dueDate: New due date (optional, pass empty string to clear).
     ///   - priority: New priority (optional).
+    ///   - listName: New list to move the reminder to (optional).
     ///   - addTags: Tags to add.
     ///   - removeTags: Tags to remove.
     /// - Returns: The updated reminder.
@@ -332,6 +450,7 @@ public actor RemindersManager {
         notes: String? = nil,
         dueDate: Date?? = nil,
         priority: Int? = nil,
+        listName: String? = nil,
         addTags: [String] = [],
         removeTags: [String] = []
     ) async throws -> Reminder {
@@ -341,6 +460,14 @@ public actor RemindersManager {
 
         guard let ekReminder = store.calendarItem(withIdentifier: id) as? EKReminder else {
             throw ReminderError.reminderNotFound(id)
+        }
+
+        // Move to a different list if requested.
+        if let listName = listName {
+            guard let list = try await getList(named: listName) else {
+                throw ReminderError.listNotFound(listName)
+            }
+            ekReminder.calendar = list
         }
 
         // Update fields
@@ -457,5 +584,123 @@ public actor RemindersManager {
             await Logger.shared.error("Failed to delete reminder: \(error)")
             throw ReminderError.failedToDelete(error.localizedDescription)
         }
+    }
+
+    // MARK: - Bulk Operations
+
+    /// Marks multiple reminders as complete in a single commit.
+    ///
+    /// Reminders that cannot be found or saved are reported in `failed`
+    /// rather than aborting the whole batch.
+    ///
+    /// - Parameter ids: The reminder identifiers to complete.
+    /// - Returns: A result describing which reminders succeeded and failed.
+    public func completeReminders(ids: [String]) async throws -> BulkResult {
+        try await ensureAccess()
+        let store = await eventStore
+
+        var succeeded: [String] = []
+        var failed: [BulkFailure] = []
+
+        for id in ids {
+            guard let ekReminder = store.calendarItem(withIdentifier: id) as? EKReminder else {
+                failed.append(BulkFailure(id: id, reason: "Reminder not found"))
+                continue
+            }
+            ekReminder.isCompleted = true
+            ekReminder.completionDate = Date()
+            do {
+                try store.save(ekReminder, commit: false)
+                succeeded.append(id)
+            } catch {
+                failed.append(BulkFailure(id: id, reason: error.localizedDescription))
+            }
+        }
+
+        try commitIfNeeded(store, changed: !succeeded.isEmpty)
+        await Logger.shared.info("Bulk completed \(succeeded.count) reminder(s), \(failed.count) failed")
+        return BulkResult(succeeded: succeeded, failed: failed)
+    }
+
+    /// Deletes multiple reminders in a single commit.
+    ///
+    /// - Parameter ids: The reminder identifiers to delete.
+    /// - Returns: A result describing which reminders succeeded and failed.
+    public func deleteReminders(ids: [String]) async throws -> BulkResult {
+        try await ensureAccess()
+        let store = await eventStore
+
+        var succeeded: [String] = []
+        var failed: [BulkFailure] = []
+
+        for id in ids {
+            guard let ekReminder = store.calendarItem(withIdentifier: id) as? EKReminder else {
+                failed.append(BulkFailure(id: id, reason: "Reminder not found"))
+                continue
+            }
+            do {
+                try store.remove(ekReminder, commit: false)
+                succeeded.append(id)
+            } catch {
+                failed.append(BulkFailure(id: id, reason: error.localizedDescription))
+            }
+        }
+
+        try commitIfNeeded(store, changed: !succeeded.isEmpty)
+        await Logger.shared.info("Bulk deleted \(succeeded.count) reminder(s), \(failed.count) failed")
+        return BulkResult(succeeded: succeeded, failed: failed)
+    }
+
+    /// Commits pending changes to the store if any were made.
+    private func commitIfNeeded(_ store: EKEventStore, changed: Bool) throws {
+        guard changed else { return }
+        do {
+            try store.commit()
+        } catch {
+            store.reset()
+            throw ReminderError.failedToSave(error.localizedDescription)
+        }
+    }
+}
+
+// MARK: - Bulk Result Types
+
+/// The outcome of a bulk reminder operation.
+public struct BulkResult: Sendable {
+    /// Identifiers of reminders that were processed successfully.
+    public let succeeded: [String]
+
+    /// Reminders that could not be processed, with a reason.
+    public let failed: [BulkFailure]
+
+    public init(succeeded: [String], failed: [BulkFailure]) {
+        self.succeeded = succeeded
+        self.failed = failed
+    }
+
+    /// Converts the result to a JSONValue for MCP responses.
+    public func toJSONValue() -> JSONValue {
+        .object([
+            "succeededCount": .int(succeeded.count),
+            "failedCount": .int(failed.count),
+            "succeeded": .array(succeeded.map { .string($0) }),
+            "failed": .array(failed.map { failure in
+                .object([
+                    "id": .string(failure.id),
+                    "reason": .string(failure.reason)
+                ])
+            })
+        ])
+    }
+}
+
+/// A single failure within a bulk operation.
+public struct BulkFailure: Sendable {
+    public let id: String
+    public let reason: String
+
+    public init(id: String, reason: String) {
+        self.id = id
+        self.reason = reason
     }
 }

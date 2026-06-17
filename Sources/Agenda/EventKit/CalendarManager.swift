@@ -123,9 +123,19 @@ public actor CalendarManager {
 
         let calendars = await eventStore.calendars(for: .event)
         return calendars.map { calendar in
-            let colorHex = calendar.cgColor?.components.map { String(format: "%02X", Int($0 * 255)) }.joined() ?? "FFFFFF"
-            return (calendar.calendarIdentifier, calendar.title, colorHex)
+            (calendar.calendarIdentifier, calendar.title, Self.hexString(from: calendar.cgColor))
         }
+    }
+
+    /// Converts a CGColor to a 6-digit hex string (defaults to white).
+    private static func hexString(from cgColor: CGColor?) -> String {
+        guard let components = cgColor?.components, components.count >= 3 else {
+            return "FFFFFF"
+        }
+        let r = Int((components[0] * 255).rounded())
+        let g = Int((components[1] * 255).rounded())
+        let b = Int((components[2] * 255).rounded())
+        return String(format: "%02X%02X%02X", r, g, b)
     }
 
     /// Gets a calendar by name.

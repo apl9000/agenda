@@ -77,7 +77,9 @@ public struct JSONRPCResponse: Codable, Sendable {
 /// JSON-RPC 2.0 Error object.
 ///
 /// Contains an error code, message, and optional additional data.
-public struct JSONRPCError: Codable, Sendable {
+///
+/// Conforms to `Error` so handlers can `throw` it directly and catch it by type.
+public struct JSONRPCError: Error, Codable, Sendable {
     /// A number indicating the error type.
     public let code: Int
 

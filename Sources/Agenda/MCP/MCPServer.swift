@@ -20,6 +20,32 @@ public actor MCPServer {
     /// MCP protocol version.
     public static let protocolVersion = "2024-11-05"
 
+    /// Guidance sent to the connected assistant in the initialize response.
+    ///
+    /// Agenda's tags are an internal organizing mechanism — the user should never
+    /// have to learn or type them. These instructions tell the assistant to infer
+    /// the classification itself from each item's content.
+    public static let instructions = """
+        Agenda keeps Apple Reminders and Calendar organized automatically. The user never \
+        needs to know about tags or hashtags — you classify items on their behalf.
+
+        When creating or updating a reminder, infer and set:
+        - gtd_status: inbox, next-action, waiting-on, someday-maybe, project, or reference \
+        (most concrete to-dos are next-action).
+        - effort: deep-work, quick-task, or maintenance.
+        - contexts: where/how it gets done (e.g. errands, calls, home, computer, finance, health).
+
+        When creating or updating an event, infer and set categories (e.g. work, health, \
+        social, travel, personal).
+
+        Rules:
+        - Never ask the user to choose a status, effort, context, or category, and never say \
+        "tags" or "hashtags" to them — these are internal.
+        - Put only human-readable text in notes; never write hashtags yourself.
+        - If you omit a classification, Agenda infers a sensible default.
+        - Use whats_next, plan_my_day, and weekly_review to help the user decide what to do.
+        """
+
     /// Server name and version.
     public let serverInfo: ServerInfo
 
@@ -143,6 +169,12 @@ public actor MCPServer {
             return .success(result: result, id: id)
         } catch let error as JSONRPCError {
             return .error(error, id: id)
+        } catch let error as PermissionError {
+            return .error(error.jsonRPCError, id: id)
+        } catch let error as ReminderError {
+            return .error(error.jsonRPCError, id: id)
+        } catch let error as CalendarError {
+            return .error(error.jsonRPCError, id: id)
         } catch let error as ParameterError {
             return .error(.invalidParams(error.localizedDescription), id: id)
         } catch {
@@ -198,7 +230,8 @@ public actor MCPServer {
             "serverInfo": .object([
                 "name": .string(serverInfo.name),
                 "version": .string(serverInfo.version)
-            ])
+            ]),
+            "instructions": .string(Self.instructions)
         ]
 
         return .object(result)
@@ -208,8 +241,9 @@ public actor MCPServer {
     private func handleToolsList() async throws -> JSONValue {
         let definitions = await toolRegistry.allDefinitions()
 
-        let tools = try definitions.map { definition -> JSONValue in
-            try await jsonRPCHandler.encodeToJSONValue(definition)
+        var tools: [JSONValue] = []
+        for definition in definitions {
+            tools.append(try await jsonRPCHandler.encodeToJSONValue(definition))
         }
 
         return .object([

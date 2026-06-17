@@ -120,8 +120,13 @@ extension Reminder {
             "tags": .array(tags.map { .string($0.name) })
         ]
 
+        // Present notes without the internal #hashtags — the classification is
+        // surfaced via the `tags` array, and the user should never see hashtags.
         if let notes = notes {
-            dict["notes"] = .string(notes)
+            let humanNotes = TagParser.removeTags(from: notes)
+            if !humanNotes.isEmpty {
+                dict["notes"] = .string(humanNotes)
+            }
         }
 
         if let dueDate = dueDate {

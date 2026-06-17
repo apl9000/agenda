@@ -65,12 +65,32 @@ extension Tag {
     }
 }
 
+// MARK: - 3-3-3 Framework Tags
+
+extension Tag {
+    /// Deep-work tag for focused, high-energy work (aim for ~3 hours/day).
+    public static let deepWork = Tag(name: "deep-work")
+
+    /// Quick-task tag for items that take under ~15 minutes (aim for 3/day).
+    public static let quickTask = Tag(name: "quick-task")
+
+    /// Maintenance tag for recurring upkeep that keeps life running (aim for 3/day).
+    public static let maintenance = Tag(name: "maintenance")
+
+    /// The 3-3-3 effort tags.
+    public static let effortTags: Set<Tag> = [.deepWork, .quickTask, .maintenance]
+}
+
 // MARK: - Tag Parsing
 
 /// Utility for parsing tags from text.
 public enum TagParser {
     /// Regular expression for matching hashtags.
-    private static let tagPattern = try! NSRegularExpression(
+    ///
+    /// The pattern is a compile-time constant and is expected to always compile.
+    /// It is stored as an optional (rather than force-unwrapped) so a malformed
+    /// pattern can never crash the server — callers degrade gracefully instead.
+    private static let tagPattern: NSRegularExpression? = try? NSRegularExpression(
         pattern: #"#([a-zA-Z][a-zA-Z0-9_-]*)"#,
         options: []
     )
@@ -80,6 +100,7 @@ public enum TagParser {
     /// - Parameter text: The text to search for tags.
     /// - Returns: An array of unique tags found in the text.
     public static func extractTags(from text: String) -> [Tag] {
+        guard let tagPattern else { return [] }
         let range = NSRange(text.startIndex..., in: text)
         let matches = tagPattern.matches(in: text, options: [], range: range)
 
@@ -104,6 +125,7 @@ public enum TagParser {
     /// - Parameter text: The text to clean.
     /// - Returns: The text with all tags removed and whitespace normalized.
     public static func removeTags(from text: String) -> String {
+        guard let tagPattern else { return text }
         let range = NSRange(text.startIndex..., in: text)
         let cleaned = tagPattern.stringByReplacingMatches(
             in: text,

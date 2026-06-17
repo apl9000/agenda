@@ -42,7 +42,11 @@ Three-layer architecture:
    - `Models/` - Protocol types (JSONRPCRequest, JSONRPCResponse, ToolDefinition)
 
 2. **Tools Layer** (`Sources/Agenda/Tools/`) - MCP tool implementations
-   - `ReminderTools.swift` - 7 reminder tools
+   - `ReminderTools.swift` - core reminder CRUD tools
+   - `ListTools.swift` - reminder list create/rename/delete tools
+   - `BulkTools.swift` - bulk complete/delete tools
+   - `PlanningTools.swift` - opinionated `whats_next` / `plan_my_day` / `weekly_review`
+   - `PermissionTools.swift` - `check_permissions`
    - `CalendarTools.swift` - 6 calendar tools
 
 3. **EventKit Layer** (`Sources/Agenda/EventKit/`) - Apple API wrappers
@@ -60,7 +64,13 @@ All managers and handlers are actors: `MCPServer`, `ToolRegistry`, `PermissionsH
 Tools implement `MCPTool` protocol with `name`, `description`, `inputSchema`, and async `execute(params:)`.
 
 ### Tag System
-Tags are #hashtags extracted from reminder notes. GTD contexts: `#inbox`, `#next-action`, `#waiting-on`, `#someday-maybe`, `#project`, `#reference`.
+Tags are #hashtags stored in reminder/event notes — an internal mechanism users never see or type. GTD contexts: `#inbox`, `#next-action`, `#waiting-on`, `#someday-maybe`, `#project`, `#reference`. 3-3-3 framework: `#deep-work`, `#quick-task`, `#maintenance`. Notes are returned with hashtags stripped; classification is surfaced via the `tags` array.
+
+### Tag Inference
+`Sources/Agenda/Utilities/TagInference.swift` is the pure engine that turns structured tool params (`gtd_status`/`effort`/`contexts` for reminders, `categories` for events) into tags, filling gaps with keyword heuristics. The assistant is told to classify items itself via the MCP server `instructions` (in `MCPServer.swift`). Keep it pure/testable.
+
+### Opinionated Planning
+`Sources/Agenda/Utilities/Planner.swift` holds the pure (no EventKit) ranking/planning/review logic behind the planning tools. Keep it pure so it stays unit-testable on any platform.
 
 ### Logging
 All logs go to stderr (stdout is for JSON-RPC). Use `logDebug()`, `logInfo()`, `logWarning()`, `logError()`.
@@ -76,10 +86,11 @@ All logs go to stderr (stdout is for JSON-RPC). Use `logDebug()`, `logInfo()`, `
 1. Create struct implementing `MCPTool` in `Sources/Agenda/Tools/`
 2. Define `name`, `description`, `inputSchema`
 3. Implement `execute(params:) async throws -> ToolResult`
-4. Register in `main.swift` via `server.registerTool()`
+4. Register in `AgendaMain.swift` via `server.registerTools()`
 
 ## Testing
 
 - Unit tests in `Tests/AgendaTests/`
-- Tests for JSON-RPC, Tags, DateHelpers, ToolRegistry
+- Tests for JSON-RPC, Tags, DateHelpers, ToolRegistry, and Planner (planning logic)
 - EventKit integration tests require system permissions
+- CI builds and tests on macOS via `.github/workflows/ci.yml`

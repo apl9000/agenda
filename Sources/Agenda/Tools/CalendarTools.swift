@@ -75,7 +75,10 @@ public struct CreateEventTool: MCPTool {
 
     public let description = """
         Create a new calendar event. Requires title, start date, and end date. \
-        Supports natural language dates like 'tomorrow at 2pm'.
+        Supports natural language dates like 'tomorrow at 2pm'. \
+
+        You (the assistant) infer `categories` (e.g. work, health, social, travel) from the \
+        event so Agenda can organize it. The user never provides these; don't mention tags to them.
         """
 
     public let inputSchema = InputSchema(
@@ -93,13 +96,17 @@ public struct CreateEventTool: MCPTool {
                 description: "Whether this is an all-day event",
                 default: false
             ),
-            "notes": .string(description: "Additional notes for the event"),
+            "notes": .string(description: "Additional notes for the event (plain text; do not add hashtags)"),
             "location": .string(description: "Event location"),
             "calendar": .string(description: "Calendar name (uses default calendar if not specified)"),
             "url": .string(description: "URL associated with the event"),
             "availability": .enum(
                 ["busy", "free", "tentative", "unavailable"],
                 description: "Availability during the event (default: busy)"
+            ),
+            "categories": .array(
+                of: .string(description: "A short category like 'work', 'health', 'social', 'travel', 'personal'"),
+                description: "Categories inferred from the event. Optional; Agenda infers when omitted."
             )
         ],
         required: ["title", "start_date", "end_date"]
@@ -130,13 +137,20 @@ public struct CreateEventTool: MCPTool {
         let calendarName = try params.optionalString("calendar")
         let url = try params.optionalString("url")
         let availability = try parseAvailability(from: params)
+        let categories = try params.optionalStringArray("categories") ?? []
+
+        // The assistant categorizes; Agenda fills gaps with keyword heuristics.
+        // Categories are stored invisibly as #hashtags in the event notes.
+        let tags = TagInference.inferEventTags(title: title, notes: notes, categories: categories)
+        let composedNotes = TagParser.addTags(tags, to: notes ?? "")
+        let finalNotes = composedNotes.isEmpty ? nil : composedNotes
 
         let event = try await manager.createEvent(
             title: title,
             startDate: startDate,
             endDate: endDate,
             isAllDay: isAllDay,
-            notes: notes,
+            notes: finalNotes,
             location: location,
             calendarName: calendarName,
             url: url,
@@ -208,12 +222,16 @@ public struct UpdateEventTool: MCPTool {
                 format: "date-time"
             ),
             "all_day": .boolean(description: "Whether this is an all-day event"),
-            "notes": .string(description: "New notes for the event"),
+            "notes": .string(description: "New notes for the event (plain text; categories are preserved automatically)"),
             "location": .string(description: "New location"),
             "url": .string(description: "New URL"),
             "availability": .enum(
                 ["busy", "free", "tentative", "unavailable"],
                 description: "New availability status"
+            ),
+            "categories": .array(
+                of: .string(description: "A short category like 'work', 'health', 'social'"),
+                description: "New set of categories (replaces existing categories)"
             )
         ],
         required: ["id"]
@@ -228,9 +246,11 @@ public struct UpdateEventTool: MCPTool {
     public func execute(params: [String: JSONValue]) async throws -> ToolResult {
         let id = try params.requireString("id")
         let title = try params.optionalString("title")
-        let notes = try params.optionalString("notes")
+        let providedNotes = try params.optionalString("notes")
         let location = try params.optionalString("location")
         let url = try params.optionalString("url")
+        // nil = leave categories untouched; [] = clear them.
+        let categories = try params.optionalStringArray("categories")
 
         var startDate: Date?
         if let startString = try params.optionalString("start_date") {
@@ -262,6 +282,17 @@ public struct UpdateEventTool: MCPTool {
             case "unavailable": availability = .unavailable
             default: break
             }
+        }
+
+        // Re-derive notes (carrying hidden category tags) only when the notes text
+        // or categories changed, so editing other fields leaves notes/tags intact.
+        var notes: String?
+        if providedNotes != nil || categories != nil {
+            let current = try await manager.getEvent(id: id)
+            let humanNotes = providedNotes ?? TagParser.removeTags(from: current.notes ?? "")
+            let desiredTags = TagInference.reconcileEventTags(current: current.tags, categories: categories)
+            let composed = TagParser.addTags(desiredTags, to: humanNotes)
+            notes = composed.isEmpty ? "" : composed
         }
 
         let event = try await manager.updateEvent(

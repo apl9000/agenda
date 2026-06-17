@@ -1,9 +1,10 @@
 # Constitution: Agenda MCP Server
 
 **Project Name:** Agenda  
-**Version:** 0.1.0  
+**Version:** 0.2.0  
 **Created:** December 17, 2025  
-**Status:** Initial Specification
+**Last Updated:** June 17, 2026  
+**Status:** Active — 0.2.0 shipped (see Roadmap)
 
 ---
 
@@ -178,7 +179,7 @@ Build an AI-powered Model Context Protocol (MCP) server that transforms Apple Re
 
 ## Development Roadmap
 
-### Phase 0: Foundation (Current)
+### Phase 0: Foundation (Complete)
 
 **Goal:** Basic MCP server that can CRUD reminders
 
@@ -188,8 +189,26 @@ Build an AI-powered Model Context Protocol (MCP) server that transforms Apple Re
 - [x] Basic reminder operations (list, create, update, delete)
 - [x] Configuration file support
 - [x] Testing infrastructure
+- [x] Continuous integration (build + test on macOS)
 
-**Status:** Core functionality complete. Ready for Phase 1.
+**Status:** Complete.
+
+---
+
+### Phase 0.5: Productivity & Organization (Delivered in 0.2.0)
+
+**Goal:** Make Agenda a genuinely opinionated, fully-featured Reminders system
+
+- [x] Full Reminders support: list management (create/rename/delete), move
+  reminders between lists, bulk complete/delete
+- [x] Opinionated planning tools: `whats_next`, `plan_my_day` (3-3-3),
+  `weekly_review` — backed by the pure, tested `Planner`
+- [x] Automatic tag inference: the assistant classifies items (`gtd_status` /
+  `effort` / `contexts`, event `categories`) and the `TagInference` engine fills
+  gaps; users never see or type a tag, and notes are returned without hashtags
+- [x] MCP server `instructions` that drive the assistant's classification
+
+**Status:** Shipped. Pulls several items forward from Phase 3 below.
 
 ---
 
@@ -213,7 +232,7 @@ Build an AI-powered Model Context Protocol (MCP) server that transforms Apple Re
 **Goal:** Executive function support
 
 - [ ] Energy level tracking
-- [ ] Task recommendation by context
+- [x] Task recommendation by context (`whats_next`)
 - [ ] Time-of-day suggestions
 - [ ] Break reminders
 - [ ] Dopamine-friendly encouragement
@@ -227,14 +246,14 @@ Build an AI-powered Model Context Protocol (MCP) server that transforms Apple Re
 
 **Goal:** Structured daily workflow
 
-- [ ] Daily planning assistant
-- [ ] 3 hours deep work scheduling
-- [ ] 3 short tasks identification
-- [ ] 3 maintenance items tracking
+- [x] Daily planning assistant (`plan_my_day`)
+- [ ] 3 hours deep work scheduling (auto-scheduling to calendar)
+- [x] 3 short tasks identification (`plan_my_day` quick-task bucket)
+- [x] 3 maintenance items tracking (`plan_my_day` maintenance bucket)
 - [ ] Progress tracking dashboard
-- [ ] Weekly review prompts
+- [x] Weekly review prompts (`weekly_review`)
 
-**Deliverable:** Sustainable daily structure
+**Deliverable:** Sustainable daily structure (core delivered in 0.2.0; scheduling + dashboard remain)
 
 ---
 
@@ -389,15 +408,15 @@ This constitution is versioned with the project. Major changes require:
 3. Community review period
 4. Maintainer approval
 
-**Current Version**: 0.1.0  
-**Last Updated**: December 17, 2025  
-**Next Review**: Q1 2026
+**Current Version**: 0.2.0  
+**Last Updated**: June 17, 2026  
+**Next Review**: Q3 2026
 
 ---
 
 ## Contact & Support
 
-- **GitHub**: [github.com/rivescloud/agenda](https://github.com/rivescloud/agenda)
+- **GitHub**: [github.com/apl9000/agenda](https://github.com/apl9000/agenda)
 - **Issues**: Bug reports and feature requests
 - **Discussions**: Questions and community support
 - **Email**: For private/security matters only

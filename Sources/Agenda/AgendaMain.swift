@@ -7,7 +7,7 @@ import Foundation
 @main
 struct Agenda {
     /// Application version
-    static let version = "0.1.0"
+    static let version = "0.2.0"
 
     static func main() async {
         // Parse command line arguments
@@ -66,27 +66,42 @@ struct Agenda {
 
         AVAILABLE TOOLS:
             Reminders:
-                - list_reminders     List reminders with filtering
-                - create_reminder    Create a new reminder
-                - get_reminder       Get reminder details
-                - update_reminder    Update a reminder
-                - complete_reminder  Mark reminder as complete
-                - delete_reminder    Delete a reminder
-                - list_reminder_lists Get all reminder lists
+                - list_reminders        List reminders with filtering
+                - create_reminder       Create a new reminder
+                - get_reminder          Get reminder details
+                - update_reminder       Update or move a reminder
+                - complete_reminder     Mark reminder as complete
+                - delete_reminder       Delete a reminder
+                - complete_reminders    Complete many reminders at once
+                - delete_reminders      Delete many reminders at once
+
+            Lists:
+                - list_reminder_lists   Get all reminder lists
+                - create_reminder_list  Create a new list
+                - rename_reminder_list  Rename a list
+                - delete_reminder_list  Delete a list and its reminders
+
+            Planning (opinionated):
+                - whats_next            Recommend the single best next action
+                - plan_my_day           Build a 3-3-3 plan for today
+                - weekly_review         GTD-style review of open loops
 
             Calendar:
-                - list_events        List calendar events
-                - create_event       Create a new event
-                - get_event          Get event details
-                - update_event       Update an event
-                - delete_event       Delete an event
-                - list_calendars     Get all calendars
+                - list_events           List calendar events
+                - create_event          Create a new event
+                - get_event             Get event details
+                - update_event          Update an event
+                - delete_event          Delete an event
+                - list_calendars        Get all calendars
+
+            Utility:
+                - check_permissions     Check / request Reminders & Calendar access
 
         PERMISSIONS:
             On first run, macOS will prompt for access to Reminders and Calendar.
             Grant access in System Settings > Privacy & Security.
 
-        For more information, visit: https://github.com/yourusername/agenda
+        For more information, visit: https://github.com/apl9000/agenda
         """)
     }
 
@@ -115,6 +130,26 @@ struct Agenda {
             ListReminderListsTool(manager: remindersManager)
         ]
 
+        // Register list-management tools
+        let listTools: [any MCPTool] = [
+            CreateReminderListTool(manager: remindersManager),
+            RenameReminderListTool(manager: remindersManager),
+            DeleteReminderListTool(manager: remindersManager)
+        ]
+
+        // Register bulk-operation tools
+        let bulkTools: [any MCPTool] = [
+            CompleteRemindersTool(manager: remindersManager),
+            DeleteRemindersTool(manager: remindersManager)
+        ]
+
+        // Register opinionated planning tools
+        let planningTools: [any MCPTool] = [
+            WhatsNextTool(manager: remindersManager),
+            PlanMyDayTool(manager: remindersManager),
+            WeeklyReviewTool(manager: remindersManager)
+        ]
+
         // Register calendar tools
         let calendarTools: [any MCPTool] = [
             ListEventsTool(manager: calendarManager),
@@ -125,10 +160,21 @@ struct Agenda {
             ListCalendarsTool(manager: calendarManager)
         ]
 
+        // Register utility tools
+        let utilityTools: [any MCPTool] = [
+            CheckPermissionsTool(permissions: permissions)
+        ]
+
         do {
             try await server.registerTools(reminderTools)
+            try await server.registerTools(listTools)
+            try await server.registerTools(bulkTools)
+            try await server.registerTools(planningTools)
             try await server.registerTools(calendarTools)
-            await Logger.shared.info("Registered \(reminderTools.count + calendarTools.count) tools")
+            try await server.registerTools(utilityTools)
+            let total = reminderTools.count + listTools.count + bulkTools.count
+                + planningTools.count + calendarTools.count + utilityTools.count
+            await Logger.shared.info("Registered \(total) tools")
         } catch {
             await Logger.shared.error("Failed to register tools: \(error)")
             exit(1)
@@ -141,22 +187,28 @@ struct Agenda {
         await server.run()
     }
 
+    /// Retains the dispatch signal sources for the lifetime of the process.
+    ///
+    /// `signal(2)` requires a context-free C function pointer, so we cannot
+    /// capture `server` in a plain handler. `DispatchSource` signal sources can
+    /// capture context, but must be retained or they stop firing.
+    private static var signalSources: [DispatchSourceSignal] = []
+
     /// Sets up signal handlers for graceful shutdown.
     static func setupSignalHandlers(server: MCPServer) {
-        // Handle SIGINT (Ctrl+C)
-        signal(SIGINT) { _ in
-            Task {
-                await Logger.shared.info("Received SIGINT, shutting down...")
-                await server.stop()
-            }
-        }
+        for sig in [SIGINT, SIGTERM] {
+            // Ignore the default disposition so the dispatch source receives it.
+            signal(sig, SIG_IGN)
 
-        // Handle SIGTERM
-        signal(SIGTERM) { _ in
-            Task {
-                await Logger.shared.info("Received SIGTERM, shutting down...")
-                await server.stop()
+            let source = DispatchSource.makeSignalSource(signal: sig, queue: .global())
+            source.setEventHandler {
+                Task {
+                    await Logger.shared.info("Received signal \(sig), shutting down...")
+                    await server.stop()
+                }
             }
+            source.resume()
+            signalSources.append(source)
         }
     }
 }
