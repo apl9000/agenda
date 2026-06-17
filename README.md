@@ -56,13 +56,29 @@ Add to `~/Library/Application Support/Claude/claude_desktop_config.json`:
 {
   "mcpServers": {
     "agenda": {
-      "command": "/usr/local/bin/agenda"
+      "command": "/absolute/path/to/agenda/.build/release/agenda"
     }
   }
 }
 ```
 
-(Or point `command` at `/path/to/agenda/.build/release/agenda`.)
+`command` **must be an absolute path to a binary that exists** — `~` is not
+expanded and relative paths won't work. Use the full path printed by
+`echo "$(pwd)/.build/release/agenda"` from the repo, or `/usr/local/bin/agenda`
+only if you ran the optional `sudo cp` install step above.
+
+After editing the config, **fully quit Claude Desktop** (⌘Q — closing the window
+isn't enough) and reopen it.
+
+#### If Agenda doesn't show up
+
+1. Confirm the binary works on its own — it should print an `initialize` response:
+   ```bash
+   echo '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"t","version":"1"}}}' | .build/release/agenda
+   ```
+2. Check Claude's MCP logs: `~/Library/Logs/Claude/mcp.log` and
+   `~/Library/Logs/Claude/mcp-server-agenda.log`.
+3. Make sure the JSON is valid (no trailing commas) and the path is absolute.
 
 ### VS Code
 

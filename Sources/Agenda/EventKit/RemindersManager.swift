@@ -387,7 +387,7 @@ public actor RemindersManager {
             }
             calendar = list
         } else {
-            guard let defaultCalendar = await store.defaultCalendarForNewReminders() else {
+            guard let defaultCalendar = store.defaultCalendarForNewReminders() else {
                 throw ReminderError.invalidData("No default reminder list available")
             }
             calendar = defaultCalendar

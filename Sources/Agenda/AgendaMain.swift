@@ -181,7 +181,7 @@ struct Agenda {
         }
 
         // Handle termination signals
-        setupSignalHandlers(server: server)
+        setupSignalHandlers()
 
         // Run the server
         await server.run()
@@ -189,23 +189,23 @@ struct Agenda {
 
     /// Retains the dispatch signal sources for the lifetime of the process.
     ///
-    /// `signal(2)` requires a context-free C function pointer, so we cannot
-    /// capture `server` in a plain handler. `DispatchSource` signal sources can
-    /// capture context, but must be retained or they stop firing.
+    /// `signal(2)` requires a context-free C function pointer, so we use
+    /// `DispatchSource` signal sources instead. They must be retained or they
+    /// stop firing.
     private static var signalSources: [DispatchSourceSignal] = []
 
-    /// Sets up signal handlers for graceful shutdown.
-    static func setupSignalHandlers(server: MCPServer) {
+    /// Sets up signal handlers so SIGINT/SIGTERM terminate the process promptly.
+    static func setupSignalHandlers() {
         for sig in [SIGINT, SIGTERM] {
             // Ignore the default disposition so the dispatch source receives it.
             signal(sig, SIG_IGN)
 
             let source = DispatchSource.makeSignalSource(signal: sig, queue: .global())
             source.setEventHandler {
-                Task {
-                    await Logger.shared.info("Received signal \(sig), shutting down...")
-                    await server.stop()
-                }
+                // The run loop blocks on readLine(), so flipping `isRunning` is
+                // not enough to interrupt it — terminate the process directly.
+                FileHandle.standardError.write(Data("agenda: received signal \(sig), shutting down\n".utf8))
+                exit(0)
             }
             source.resume()
             signalSources.append(source)

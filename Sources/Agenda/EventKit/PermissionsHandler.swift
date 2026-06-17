@@ -116,7 +116,7 @@ public actor PermissionsHandler {
     /// - Returns: True if access is granted.
     public func hasRemindersAccess() -> Bool {
         let status = EKEventStore.authorizationStatus(for: .reminder)
-        return status == .authorized || status == .fullAccess || status == .writeOnly
+        return status == .fullAccess || status == .writeOnly
     }
 
     // MARK: - Calendar Permissions
@@ -182,7 +182,7 @@ public actor PermissionsHandler {
     /// - Returns: True if full access is granted.
     public func hasCalendarAccess() -> Bool {
         let status = EKEventStore.authorizationStatus(for: .event)
-        return status == .authorized || status == .fullAccess
+        return status == .fullAccess
     }
 
     // MARK: - Combined Permissions
