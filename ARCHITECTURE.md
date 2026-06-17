@@ -2,7 +2,7 @@
 
 This document describes the technical architecture of the Agenda MCP server.
 
-> **Note**: This architecture reflects **Phase 0** of the project roadmap. See [CONSTITUTION.md](CONSTITUTION.md) for the long-term vision including AI integration, pattern learning, and executive function support.
+> **Note**: As of 0.2.0 the server provides full Reminders + Calendar CRUD, list management, bulk operations, opinionated planning (`whats_next` / `plan_my_day` / `weekly_review`), and automatic tag inference. The heavier "AI Engine" and on-device learning layers described in [CONSTITUTION.md](CONSTITUTION.md) remain future work — today the *connected* assistant supplies the intelligence, guided by the server's tool schemas and `instructions`.
 
 ## Overview
 
@@ -34,7 +34,7 @@ The architecture follows the principles defined in [CONSTITUTION.md](CONSTITUTIO
 
 ```
 Sources/Agenda/
-├── main.swift                  # Entry point, CLI handling
+├── AgendaMain.swift            # Entry point (@main), CLI handling, tool registration
 ├── MCP/
 │   ├── MCPServer.swift        # Main server loop, method routing
 │   ├── JSONRPCHandler.swift   # JSON-RPC encoding/decoding
@@ -61,7 +61,8 @@ Sources/Agenda/
 └── Utilities/
     ├── Logger.swift           # stderr logging
     ├── DateHelpers.swift      # Date parsing utilities
-    └── Planner.swift          # Pure opinionated ranking/planning/review logic
+    ├── Planner.swift          # Pure opinionated ranking/planning/review logic
+    └── TagInference.swift     # Pure tag classification + keyword fallback
 ```
 
 ## Core Components
@@ -112,6 +113,20 @@ Actor-based wrappers around EventKit:
 - Async/await interface
 - Error mapping to domain errors
 - Data conversion between EKReminder/EKEvent and domain models
+- Reminder list management (create/rename/delete) and moving reminders between lists
+- Bulk complete/delete with a single commit and partial-failure reporting
+
+### Pure Domain Logic (`Utilities/`)
+
+Two stateless engines hold the opinionated behavior, deliberately free of EventKit
+so they are unit-testable on any platform:
+
+- **`Planner`** — ranks next actions and builds the `plan_my_day` / `weekly_review`
+  outputs from `[Reminder]`.
+- **`TagInference`** — turns the structured `gtd_status` / `effort` / `contexts`
+  (and event `categories`) parameters into tags, filling gaps with keyword
+  heuristics. The connected assistant is told to classify items itself via the
+  `instructions` returned from `initialize`; the user never types a tag.
 
 ## Data Flow
 
@@ -245,17 +260,21 @@ Domain models (Reminder, Event) are:
 
 This separation maintains **data sovereignty** and makes the code more testable.
 
-### Why Tag Parsing in Notes?
+### Why Tags in Notes — and Why They're Hidden
 
-Apple Reminders doesn't have a native tag API. Using #hashtags in notes:
+Apple Reminders has no native tag API, so the GTD/3-3-3 classification is stored
+as `#hashtags` in the notes field. Crucially, tags are an **internal** mechanism:
 
-- Works with existing Reminders workflows
-- Visible in the native Reminders app
-- Familiar syntax for users
-- Supports GTD contexts naturally
-- **Reduces cognitive friction** (neurodivergent-first design)
+- The user never types or sees them. The connected assistant infers
+  classification (`gtd_status` / `effort` / `contexts`, event `categories`) from
+  the content, and `TagInference` fills any gaps with keyword heuristics.
+- On the way out, notes are returned with hashtags **stripped**; the
+  classification is surfaced separately via the `tags` array.
+- Storing in notes keeps everything local and means the raw data is still
+  recoverable in the native Reminders app if the user looks.
 
-The tag system enables **radical clarity** by making task context explicit and visible.
+This keeps the surface free of jargon (**reduces cognitive friction**) while the
+hidden structure powers the planning tools (**radical clarity**).
 
 ### Why stderr for Logging?
 
@@ -281,7 +300,7 @@ MCP protocol uses stdout for JSON-RPC communication. All diagnostic output must 
 
 ## Future Architecture (Phase 1+)
 
-The current architecture is designed to accommodate future enhancements without major refactoring:
+The current architecture is designed to accommodate future enhancements without major refactoring. Note that today's "intelligence" comes from the **connected assistant** (guided by tool schemas, server `instructions`, and the pure `Planner` / `TagInference` engines). The sections below describe heavier, server-resident capabilities that are not yet implemented:
 
 ### AI Integration Layer (Phase 1)
 

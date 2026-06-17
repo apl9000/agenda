@@ -86,7 +86,7 @@ All logs go to stderr (stdout is for JSON-RPC). Use `logDebug()`, `logInfo()`, `
 1. Create struct implementing `MCPTool` in `Sources/Agenda/Tools/`
 2. Define `name`, `description`, `inputSchema`
 3. Implement `execute(params:) async throws -> ToolResult`
-4. Register in `main.swift` via `server.registerTool()`
+4. Register in `AgendaMain.swift` via `server.registerTools()`
 
 ## Testing
 

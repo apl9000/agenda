@@ -10,9 +10,9 @@ Build compassionate, neurodivergent-first productivity tools that honor differen
 
 Agenda isn't just a thin wrapper over EventKit. On top of full CRUD it adds tools that make a decision *for* you:
 
-- **`whats_next`** — ranks your open reminders by what's overdue, due today, tagged `#next-action`, and high priority, then hands back the *single* best thing to do. Antidote to decision paralysis.
-- **`plan_my_day`** — builds a [3-3-3](#the-3-3-3-framework) plan: 3 deep-work items, 3 quick tasks, 3 maintenance items, plus what's overdue and due today.
-- **`weekly_review`** — a GTD review that surfaces unclarified tasks, stale `#inbox` items, `#waiting-on` follow-ups, and overdue work so nothing slips.
+- **`whats_next`** — ranks your open reminders by what's overdue, due today, marked as a next action, and high priority, then hands back the *single* best thing to do. Antidote to decision paralysis.
+- **`plan_my_day`** — builds a [3-3-3](#organization-you-never-type-a-tag) plan: 3 deep-work items, 3 quick tasks, 3 maintenance items, plus what's overdue and due today.
+- **`weekly_review`** — a GTD review that surfaces unclarified tasks, stale inbox items, waiting-on follow-ups, and overdue work so nothing slips.
 
 ## Features
 
@@ -123,8 +123,10 @@ On first use, macOS prompts for access to **Reminders** and **Calendar**. If a t
 
 ## Usage Examples
 
+You just talk normally — Agenda figures out the organization.
+
 ```
-Create a reminder "Call dentist to schedule cleaning" with tag #next-action due tomorrow
+Remind me to call the dentist to schedule a cleaning tomorrow
 ```
 
 ```

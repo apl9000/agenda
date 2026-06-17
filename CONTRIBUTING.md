@@ -19,7 +19,7 @@ Before contributing, please read [CONSTITUTION.md](CONSTITUTION.md) to understan
 ## Getting Started
 
 1. Fork the repository
-2. Clone your fork: `git clone https://github.com/yourusername/agenda.git`
+2. Clone your fork: `git clone https://github.com/apl9000/agenda.git`
 3. Create a feature branch: `git checkout -b feature/your-feature`
 4. Make your changes
 5. Run tests: `swift test`
@@ -95,13 +95,16 @@ See [ARCHITECTURE.md](ARCHITECTURE.md) for an overview of the codebase structure
 
 - Write tests for all new functionality
 - Aim for 80%+ code coverage
-- Use protocol-based dependency injection for testability
-- Mock EventKit for unit tests
+- Keep opinionated logic in pure, EventKit-free engines (e.g. `Planner`,
+  `TagInference`, `DateHelpers`, `Tag`) so it can be tested directly — this is
+  preferred over mocking EventKit
+- Every push and PR is built and tested on macOS by GitHub Actions
+  (`.github/workflows/ci.yml`); make sure `swift build` and `swift test` pass locally first
 
 ### Integration Tests
 
 - Test actual EventKit integration separately
-- These tests require system permissions
+- These tests require system permissions and run on a real macOS machine
 
 ## Pull Request Process
 
