@@ -51,7 +51,7 @@ public enum Planner {
         if let due = reminder.dueDate {
             if due < calendar.startOfDay(for: now) {
                 score += 1000          // overdue
-            } else if calendar.isDateInToday(due) {
+            } else if calendar.isDate(due, inSameDayAs: now) {
                 score += 500           // due today
             } else {
                 score += 100           // scheduled for later
@@ -101,7 +101,7 @@ public enum Planner {
 
         let dueToday = ranked.filter { reminder in
             guard let due = reminder.dueDate else { return false }
-            return calendar.isDateInToday(due)
+            return calendar.isDate(due, inSameDayAs: now)
         }
 
         let deepWork = Array(ranked.filter { $0.tags.contains(.deepWork) }.prefix(3))
