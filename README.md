@@ -4,7 +4,7 @@ An opinionated [MCP](https://modelcontextprotocol.io) (Model Context Protocol) s
 
 ## Mission
 
-Build compassionate, neurodivergent-first productivity tools that honor different ways of thinking and working — offering clarity without judgment, structure without pressure, and privacy without compromise. See [CONSTITUTION.md](CONSTITUTION.md) for the full vision.
+Build compassionate, neurodivergent-first productivity tools that honor different ways of thinking and working — offering clarity without judgment, structure without pressure, and privacy without compromise.
 
 ## What makes it opinionated
 
@@ -185,8 +185,6 @@ The opinionated planning logic in `Sources/Agenda/Utilities/Planner.swift` is pu
 
 ## Documentation
 
-- **[CONSTITUTION.md](CONSTITUTION.md)** — mission, values, and roadmap
-- **[ARCHITECTURE.md](ARCHITECTURE.md)** — technical design
 - **[CONTRIBUTING.md](CONTRIBUTING.md)** — contributor guidelines
 - **[CHANGELOG.md](CHANGELOG.md)** — release history
 
