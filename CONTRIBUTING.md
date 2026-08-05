@@ -8,7 +8,7 @@ Be respectful, inclusive, and constructive in all interactions. We're building t
 
 ## Our Mission
 
-Before contributing, please read [CONSTITUTION.md](CONSTITUTION.md) to understand our core values:
+Agenda is guided by these core values:
 
 - **Neurodivergent-First Design** - ADHD and dyslexia needs drive every decision
 - **Radical Clarity** - Clear, actionable, no vague language
@@ -78,7 +78,7 @@ swift run agenda --debug
 
 ## Architecture
 
-See [ARCHITECTURE.md](ARCHITECTURE.md) for an overview of the codebase structure and [CONSTITUTION.md](CONSTITUTION.md) for the long-term architectural vision.
+The server is structured in three layers — MCP protocol (`Sources/Agenda/MCP/`), tool implementations (`Sources/Agenda/Tools/`), and EventKit wrappers (`Sources/Agenda/EventKit/`) — with pure, EventKit-free engines in `Sources/Agenda/Utilities/` (`Planner`, `TagInference`).
 
 ### Key Principles
 
