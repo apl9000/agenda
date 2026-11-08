@@ -20,9 +20,9 @@ let infoPlistPath = packageRoot + "/Sources/Agenda/Info.plist"
 // A target that uses it cannot be a dependency of another package. Tests in
 // this package can still depend on Agenda. Info.plist is excluded from the
 // target because SwiftPM rejects a resource named Info.plist; the linker
-// reads the file from source. No Developer ID is required: SwiftPM ad-hoc
-// signs the product with `codesign --sign -` after the section exists, so
-// the signature covers `__TEXT,__info_plist`.
+// reads the file from source. A release build's linker-signed signature does
+// not bind that section (codesign reports Info.plist=not bound). Scripts/sign-adhoc.sh
+// re-signs with the ad-hoc identity "-" afterward. No Developer ID.
 let embedInfoPlistFlags = [
     "-Xlinker", "-sectcreate",
     "-Xlinker", "__TEXT",

@@ -254,7 +254,10 @@ def verify_binary(binary: Path, otool_output: Path | None) -> None:
     details = completed.stdout + completed.stderr
     if completed.returncode != 0 and "Identifier=" not in details:
         raise VerifyError(details.strip() or "codesign failed")
-    assert_adhoc_and_bound(details)
+    try:
+        assert_adhoc_and_bound(details)
+    except VerifyError as error:
+        raise VerifyError(f"{error}\n--- codesign -d --verbose=4 ---\n{details}") from error
     print(f"embedded Info.plist ok: {binary}")
 
 

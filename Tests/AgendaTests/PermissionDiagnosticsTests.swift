@@ -16,12 +16,15 @@ final class PermissionDiagnosticsTests: XCTestCase {
         XCTAssertEqual(AuthorizationStatusName(eventKit: .fullAccess), .fullAccess)
         XCTAssertEqual(AuthorizationStatusName(eventKit: .writeOnly), .writeOnly)
 
-        let authorized = AuthorizationStatusName(eventKit: .authorized)
-        if EKAuthorizationStatus.authorized.rawValue == EKAuthorizationStatus.fullAccess.rawValue {
-            // The macOS 14 SDK aliases the deprecated name onto full access.
-            XCTAssertEqual(authorized, .fullAccess)
+        // EKAuthorizationStatusAuthorized is raw value 3 in EKTypes.h. Naming
+        // the deprecated case warns on the macOS 14 SDK, so this uses the raw
+        // value. When fullAccess has that same value, the mapper reports fullAccess.
+        let legacy = try XCTUnwrap(EKAuthorizationStatus(rawValue: 3))
+        let mapped = AuthorizationStatusName(eventKit: legacy)
+        if EKAuthorizationStatus.fullAccess.rawValue == 3 {
+            XCTAssertEqual(mapped, .fullAccess)
         } else {
-            XCTAssertEqual(authorized, .authorized)
+            XCTAssertEqual(mapped, .authorized)
         }
     }
 
@@ -46,14 +49,16 @@ final class PermissionDiagnosticsTests: XCTestCase {
     }
 
     func testFullAccessRequestIsAttemptedOnlyWhenNotDetermined() {
-        let cases: [(EKAuthorizationStatus, Bool)] = [
+        var cases: [(EKAuthorizationStatus, Bool)] = [
             (.notDetermined, true),
             (.restricted, false),
             (.denied, false),
             (.fullAccess, false),
-            (.writeOnly, false),
-            (.authorized, false)
+            (.writeOnly, false)
         ]
+        if let legacy = EKAuthorizationStatus(rawValue: 3), legacy != .fullAccess {
+            cases.append((legacy, false))
+        }
         for (status, expected) in cases {
             let name = AuthorizationStatusName(eventKit: status)
             XCTAssertEqual(

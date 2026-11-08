@@ -18,10 +18,19 @@ public enum AuthorizationStatusName: String, Sendable, Equatable, Encodable {
     case authorized
     case unknown
 
+    /// Raw value of `EKAuthorizationStatusAuthorized` in EKTypes.h.
+    ///
+    /// The original enum is `notDetermined = 0`, then `restricted`, `denied`,
+    /// and `authorized`. The macOS 14 SDK deprecates that case. When its raw
+    /// value is also `fullAccess`, this mapper reports `fullAccess` and does
+    /// not name the deprecated case.
+    private static let legacyAuthorizedRawValue = 3
+
     /// Maps an EventKit status without collapsing distinct cases.
     ///
-    /// `.fullAccess` is checked before `.authorized` because those cases can
-    /// alias one raw value. A `switch` cannot name both when they do.
+    /// `fullAccess` is checked before the legacy raw value because those can
+    /// alias. The deprecated case is not named here; naming it warns on the
+    /// macOS 14 SDK, and a switch cannot list both when they share a raw value.
     public init(eventKit status: EKAuthorizationStatus) {
         if status == .notDetermined {
             self = .notDetermined
@@ -33,7 +42,8 @@ public enum AuthorizationStatusName: String, Sendable, Equatable, Encodable {
             self = .writeOnly
         } else if status == .fullAccess {
             self = .fullAccess
-        } else if status == .authorized {
+        } else if status.rawValue == Self.legacyAuthorizedRawValue,
+                  Self.legacyAuthorizedRawValue != EKAuthorizationStatus.fullAccess.rawValue {
             self = .authorized
         } else {
             self = .unknown

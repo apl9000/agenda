@@ -92,14 +92,24 @@ Agenda calls EventKit `requestFullAccessToReminders` and `requestFullAccessToEve
 otool -s __TEXT __info_plist .build/release/agenda
 ```
 
-`swift build` ad-hoc signs the executable (`codesign --sign -`). A paid Developer ID is not required for that signature.
+`swift build -c release` linker-signs the executable. That signature does not bind `__TEXT,__info_plist`. On macOS 26.5.1 arm64, `otool -P` printed the usage strings while `codesign -dv` reported `Signature=adhoc`, linker-signed, `Identifier=agenda`, and `Info.plist=not bound`. The macos-15 CI runner reported `Info.plist=not bound` on that same linker-signed binary. Re-sign after the link:
 
-macOS attributes a command-line tool's Calendar and Reminders prompt to the **responsible app** — the app that launched `agenda` — rather than to a separate System Settings row named Agenda. The controls are that app's rows:
+```bash
+make sign-adhoc
+# or: ./Scripts/sign-adhoc.sh .build/release/agenda
+# codesign --force --sign - --identifier cloud.rives.agenda <binary>
+```
+
+`make release` builds and then runs that script. The identity is `-` (ad-hoc). No Developer ID. CI runs the script and then checks that `codesign -dv` reports `Identifier=cloud.rives.agenda` and a bound Info.plist (`Info.plist entries=`, and not `Info.plist=not bound`).
+
+On that macOS 26.5.1 run, before this re-sign, `check_permissions` reported `notDetermined` for Reminders and Calendar, with a full-access request attempted, `requestGranted` false, no `requestError`, and no dialog. This repository has not repeated that EventKit call after `Scripts/sign-adhoc.sh`, so the re-sign is not claimed to make the dialog appear.
+
+macOS attributes the prompt to the responsible process, which for a program launched by another app is that launching app, not a separate row named Agenda. Tor Arne Vestbø's account, quoted by Michael Tsai, is that TCC picks the responsible process and that a usage-description key required by a child has to be in the responsible app ([The Curious Case of the Responsible Process](https://mjtsai.com/blog/2025/07/07/the-curious-case-of-the-responsible-process/)). Howard Oakley describes the same attribution chain for shell commands: TCC walks up to a GUI app such as Terminal, and that app hosts the dialog ([Code signing for the concerned: 5 Signing and privacy control](https://eclecticlight.co/2019/01/29/code-signing-for-the-concerned-5-signing-and-privacy-control/)). Those sources do not say that an ad-hoc signature on the CLI makes the CLI the responsible process when a GUI app spawned it. The controls for the responsible app are:
 
 - **System Settings → Privacy & Security → Calendars**
 - **System Settings → Privacy & Security → Reminders**
 
-Embedding Agenda's plist does not add usage strings to the launching app, and it does not give `agenda` its own row.
+`codesign(1)` says that if `--identifier` is omitted, the identifier is taken from the Info.plist when one is present, otherwise from the filename ([codesign(1)](https://keith.github.io/xcode-man-pages/codesign.1.html)). The linker-signed binary did not do that — its identifier stayed `agenda` while the plist said `cloud.rives.agenda` — which matches `Info.plist=not bound`. The sign script passes `--identifier` explicitly.
 
 `check_permissions` (and `agenda --check-permissions`) reports, for Reminders and for Calendar separately:
 
@@ -213,7 +223,7 @@ swift test --filter PlannerTests  # run one suite
 
 The opinionated planning logic in `Sources/Agenda/Utilities/Planner.swift` is pure and fully unit-tested independent of EventKit.
 
-`Package.swift` passes `-sectcreate __TEXT __info_plist` through `linkerSettings` `unsafeFlags`, which is the Package.swift API that can pass that flag. A target using `unsafeFlags` cannot be a dependency of another package. The Info.plist path is absolute (`#filePath`) because the linker opens it from the build's working directory. The file is excluded from the target so SwiftPM does not treat it as a bundle resource. CI runs `otool -s __TEXT __info_plist` against `.build/release/agenda` and checks the usage-description keys. Hosted `macos-14` runners stopped scheduling on 2026-11-02, so that job runs on `macos-15`. The package deployment target is still macOS 14.
+`Package.swift` passes `-sectcreate __TEXT __info_plist` through `linkerSettings` `unsafeFlags`, which is the Package.swift API that can pass that flag. A target using `unsafeFlags` cannot be a dependency of another package. The Info.plist path is absolute (`#filePath`) because the linker opens it from the build's working directory. The file is excluded from the target so SwiftPM does not treat it as a bundle resource. After `swift build -c release`, run `make sign-adhoc` (see above). CI does that, then runs `otool -s __TEXT __info_plist` against `.build/release/agenda` and checks the usage-description keys and the ad-hoc signature. Hosted `macos-14` runners stopped scheduling on 2026-11-02, so that job runs on `macos-15`. The package deployment target is still macOS 14.
 
 ## Documentation
 

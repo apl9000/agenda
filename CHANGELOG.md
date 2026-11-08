@@ -9,7 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
-- Embed `Info.plist` in the `agenda` executable (`__TEXT,__info_plist`) so EventKit can read `NSCalendarsFullAccessUsageDescription`, `NSRemindersFullAccessUsageDescription`, and the legacy calendar and reminders usage strings. The link stays ad-hoc signed; a Developer ID is not required.
+- Embed `Info.plist` in the `agenda` executable (`__TEXT,__info_plist`) so EventKit can read `NSCalendarsFullAccessUsageDescription`, `NSRemindersFullAccessUsageDescription`, and the legacy calendar and reminders usage strings. `Scripts/sign-adhoc.sh` (`make sign-adhoc`) replaces the linker-signed signature, which leaves that plist unbound, with `codesign --force --sign - --identifier cloud.rives.agenda`. No Developer ID.
 - `check_permissions` no longer collapses `notDetermined`, `restricted`, `denied`, and a failed full-access request into `denied`. It reports the EventKit status, whether a request was attempted, and the request result or error domain and code separately.
 
 ### Added

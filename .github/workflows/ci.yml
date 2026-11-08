@@ -21,13 +21,16 @@ jobs:
     runs-on: macos-15
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Show Swift version
         run: swift --version
 
       - name: Build (release)
         run: swift build -c release
+
+      - name: Ad-hoc sign
+        run: ./Scripts/sign-adhoc.sh .build/release/agenda
 
       - name: Verify embedded Info.plist
         run: |
