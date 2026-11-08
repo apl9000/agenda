@@ -15,7 +15,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - `agenda --check-permissions` prints that diagnostic as JSON and exits, without listing events or reminders.
-- macOS CI runs `otool -s __TEXT __info_plist` on the release binary and checks the embedded usage-description keys.
+- macOS CI runs `otool -s __TEXT __info_plist` on the release binary and checks the embedded usage-description keys. The job runs on `macos-15` because hosted `macos-14` runners no longer schedule.
 - Automatic tag inference so users never deal with hashtags. The assistant
   classifies items via structured params and Agenda fills any gaps with keyword
   heuristics:

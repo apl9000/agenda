@@ -213,7 +213,7 @@ swift test --filter PlannerTests  # run one suite
 
 The opinionated planning logic in `Sources/Agenda/Utilities/Planner.swift` is pure and fully unit-tested independent of EventKit.
 
-`Package.swift` passes `-sectcreate __TEXT __info_plist` through `linkerSettings` `unsafeFlags`, which is the Package.swift API that can pass that flag. A target using `unsafeFlags` cannot be a dependency of another package. The Info.plist path is absolute (`#filePath`) because the linker opens it from the build's working directory. The file is excluded from the target so SwiftPM does not treat it as a bundle resource. CI on `macos-14` runs `otool -s __TEXT __info_plist` against `.build/release/agenda` and checks the usage-description keys.
+`Package.swift` passes `-sectcreate __TEXT __info_plist` through `linkerSettings` `unsafeFlags`, which is the Package.swift API that can pass that flag. A target using `unsafeFlags` cannot be a dependency of another package. The Info.plist path is absolute (`#filePath`) because the linker opens it from the build's working directory. The file is excluded from the target so SwiftPM does not treat it as a bundle resource. CI runs `otool -s __TEXT __info_plist` against `.build/release/agenda` and checks the usage-description keys. Hosted `macos-14` runners stopped scheduling on 2026-11-02, so that job runs on `macos-15`. The package deployment target is still macOS 14.
 
 ## Documentation
 

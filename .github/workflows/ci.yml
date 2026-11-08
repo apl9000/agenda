@@ -13,7 +13,12 @@ concurrency:
 jobs:
   build-and-test:
     name: Build & Test (macOS)
-    runs-on: macos-14
+    # Hosted macos-14 runners were retired on 2026-11-02. A job with
+    # runs-on: macos-14 now fails before it starts:
+    # "The configuration 'macos-14-arm64-us-default' is not supported".
+    # macos-15 is the oldest hosted image that still schedules. The
+    # package deployment target remains macOS 14.
+    runs-on: macos-15
     steps:
       - name: Checkout
         uses: actions/checkout@v4
