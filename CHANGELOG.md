@@ -7,8 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- Embed `Info.plist` in the `agenda` executable (`__TEXT,__info_plist`) so EventKit can read `NSCalendarsFullAccessUsageDescription`, `NSRemindersFullAccessUsageDescription`, and the legacy calendar and reminders usage strings. The link stays ad-hoc signed; a Developer ID is not required.
+- `check_permissions` no longer collapses `notDetermined`, `restricted`, `denied`, and a failed full-access request into `denied`. It reports the EventKit status, whether a request was attempted, and the request result or error domain and code separately.
+
 ### Added
 
+- `agenda --check-permissions` prints that diagnostic as JSON and exits, without listing events or reminders.
+- macOS CI runs `otool -s __TEXT __info_plist` on the release binary and checks the embedded usage-description keys.
 - Automatic tag inference so users never deal with hashtags. The assistant
   classifies items via structured params and Agenda fills any gaps with keyword
   heuristics:

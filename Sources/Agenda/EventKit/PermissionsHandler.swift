@@ -116,7 +116,7 @@ public actor PermissionsHandler {
     /// - Returns: True if access is granted.
     public func hasRemindersAccess() -> Bool {
         let status = EKEventStore.authorizationStatus(for: .reminder)
-        return status == .fullAccess || status == .writeOnly
+        return AuthorizationStatusName(eventKit: status).allowsRemindersUse
     }
 
     // MARK: - Calendar Permissions
@@ -182,7 +182,7 @@ public actor PermissionsHandler {
     /// - Returns: True if full access is granted.
     public func hasCalendarAccess() -> Bool {
         let status = EKEventStore.authorizationStatus(for: .event)
-        return status == .fullAccess
+        return AuthorizationStatusName(eventKit: status).allowsCalendarUse
     }
 
     // MARK: - Combined Permissions
@@ -212,38 +212,78 @@ public actor PermissionsHandler {
         }
     }
 
-    /// Returns a status object describing current permissions.
-    public func getStatus() -> PermissionStatus {
-        PermissionStatus(
-            reminders: hasRemindersAccess() ? .granted : .denied,
-            calendar: hasCalendarAccess() ? .granted : .denied
-        )
-    }
-}
-
-// MARK: - Permission Status
-
-/// Describes the current permission status.
-public struct PermissionStatus: Codable, Sendable {
-    public enum Status: String, Codable, Sendable {
-        case granted
-        case denied
-        case notDetermined
+    /// Reads EventKit authorization for Reminders and Calendar and, only when
+    /// a status is `notDetermined`, calls the matching `requestFullAccess` API.
+    ///
+    /// Does not list calendars, events, or reminders. The returned status is
+    /// the EventKit status, not a collapsed granted/denied flag. A request
+    /// that returns `false` or throws stays visible in `requestGranted` or
+    /// `requestError` and does not rewrite `status`.
+    public func diagnoseAccess() async -> PermissionDiagnostic {
+        let reminders = await diagnose(.reminders)
+        let calendar = await diagnose(.calendar)
+        return PermissionDiagnostic(reminders: reminders, calendar: calendar)
     }
 
-    public let reminders: Status
-    public let calendar: Status
+    private enum AccessEntity {
+        case reminders
+        case calendar
 
-    public var allGranted: Bool {
-        reminders == .granted && calendar == .granted
+        var logName: String {
+            switch self {
+            case .reminders:
+                return "Reminders"
+            case .calendar:
+                return "Calendar"
+            }
+        }
+
+        var eventKitType: EKEntityType {
+            switch self {
+            case .reminders:
+                return .reminder
+            case .calendar:
+                return .event
+            }
+        }
     }
 
-    /// Converts to JSONValue for MCP response.
-    public func toJSONValue() -> JSONValue {
-        .object([
-            "reminders": .string(reminders.rawValue),
-            "calendar": .string(calendar.rawValue),
-            "allGranted": .bool(allGranted)
-        ])
+    private func diagnose(_ entity: AccessEntity) async -> EntityPermissionReport {
+        let before = EKEventStore.authorizationStatus(for: entity.eventKitType)
+        let beforeName = AuthorizationStatusName(eventKit: before)
+        guard AuthorizationStatusName.shouldAttemptFullAccessRequest(beforeName) else {
+            return .notAttempted(status: beforeName, rawValue: before.rawValue)
+        }
+
+        await Logger.shared.info("Requesting full access to \(entity.logName)")
+        do {
+            let granted = try await requestFullAccess(entity)
+            let after = EKEventStore.authorizationStatus(for: entity.eventKitType)
+            return .afterReturn(
+                granted: granted,
+                status: AuthorizationStatusName(eventKit: after),
+                rawValue: after.rawValue
+            )
+        } catch {
+            let info = PermissionRequestError(error)
+            await Logger.shared.warning(
+                PermissionDiagnosticsLogging.requestFailedLine(entity: entity.logName, error: info)
+            )
+            let after = EKEventStore.authorizationStatus(for: entity.eventKitType)
+            return .afterFailure(
+                error: info,
+                status: AuthorizationStatusName(eventKit: after),
+                rawValue: after.rawValue
+            )
+        }
+    }
+
+    private func requestFullAccess(_ entity: AccessEntity) async throws -> Bool {
+        switch entity {
+        case .reminders:
+            return try await eventStore.requestFullAccessToReminders()
+        case .calendar:
+            return try await eventStore.requestFullAccessToEvents()
+        }
     }
 }

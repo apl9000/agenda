@@ -86,7 +86,36 @@ Configure your MCP settings to launch the `agenda` binary over stdio.
 
 ## Permissions
 
-On first use, macOS prompts for access to **Reminders** and **Calendar**. If a tool reports a permission error, run the `check_permissions` tool, then grant access in **System Settings → Privacy & Security → Reminders / Calendars**.
+Agenda calls EventKit `requestFullAccessToReminders` and `requestFullAccessToEvents`. Those APIs need usage strings in the calling process's Info.plist (`NSRemindersFullAccessUsageDescription`, `NSCalendarsFullAccessUsageDescription`, and the legacy `NSRemindersUsageDescription` / `NSCalendarsUsageDescription` keys). The release binary embeds `Sources/Agenda/Info.plist` in the Mach-O section `__TEXT,__info_plist` so EventKit can read them. Check that section with:
+
+```bash
+otool -s __TEXT __info_plist .build/release/agenda
+```
+
+`swift build` ad-hoc signs the executable (`codesign --sign -`). A paid Developer ID is not required for that signature.
+
+macOS attributes a command-line tool's Calendar and Reminders prompt to the **responsible app** — the app that launched `agenda` — rather than to a separate System Settings row named Agenda. The controls are that app's rows:
+
+- **System Settings → Privacy & Security → Calendars**
+- **System Settings → Privacy & Security → Reminders**
+
+Embedding Agenda's plist does not add usage strings to the launching app, and it does not give `agenda` its own row.
+
+`check_permissions` (and `agenda --check-permissions`) reports, for Reminders and for Calendar separately:
+
+- `status` — the EventKit authorization status: `notDetermined`, `restricted`, `denied`, `fullAccess`, `writeOnly`, or `authorized`
+- `statusRawValue` — that status's raw value
+- `requestAttempted` — whether a full-access request was made (only when the status was `notDetermined`)
+- `requestGranted` — the boolean the request returned, or `null` if it was not attempted or it threw
+- `requestError` — `domain`, `code`, and `description` when the request threw
+
+A request that returns false, or throws, does not change `status` into `denied`. `notDetermined`, `restricted`, `denied`, and a failed request stay distinct. The command prints that JSON on stdout and exits. It does not list events or reminders. Stderr from a failed request contains the entity name, the error domain, and the error code.
+
+```bash
+.build/release/agenda --check-permissions
+```
+
+This was not reproduced end to end against a particular host app in CI. Read the JSON from a run on your machine; do not treat a missing dialog as a recorded denial unless `status` is `denied`.
 
 ## Available Tools
 
@@ -135,7 +164,7 @@ On first use, macOS prompts for access to **Reminders** and **Calendar**. If a t
 
 | Tool                | Description                                 |
 | ------------------- | ------------------------------------------- |
-| `check_permissions` | Check / request Reminders & Calendar access |
+| `check_permissions` | Report Reminders and Calendar authorization, and request access only when it is `notDetermined` |
 
 ## Usage Examples
 
@@ -177,11 +206,14 @@ You can still steer it ("make this a someday-maybe", "that's deep work") — but
 swift build               # build
 swift run agenda          # run
 swift run agenda --debug  # run with stderr debug logging
+swift run agenda --check-permissions  # print authorization JSON and exit
 swift test                # run tests
 swift test --filter PlannerTests  # run one suite
 ```
 
 The opinionated planning logic in `Sources/Agenda/Utilities/Planner.swift` is pure and fully unit-tested independent of EventKit.
+
+`Package.swift` passes `-sectcreate __TEXT __info_plist` through `linkerSettings` `unsafeFlags`, which is the Package.swift API that can pass that flag. A target using `unsafeFlags` cannot be a dependency of another package. The Info.plist path is absolute (`#filePath`) because the linker opens it from the build's working directory. The file is excluded from the target so SwiftPM does not treat it as a bundle resource. CI on `macos-14` runs `otool -s __TEXT __info_plist` against `.build/release/agenda` and checks the usage-description keys.
 
 ## Documentation
 
