@@ -100,7 +100,7 @@ make sign-adhoc
 # codesign --force --sign - --identifier cloud.rives.agenda <binary>
 ```
 
-`make release` builds and then runs that script. The identity is `-` (ad-hoc). No Developer ID. CI runs the script and then checks that `codesign -dv` reports `Identifier=cloud.rives.agenda` and a bound Info.plist (`Info.plist entries=`, and not `Info.plist=not bound`).
+`make release` builds and then runs that script. The identity is `-` (ad-hoc). No Developer ID. CI runs the script and then checks that `codesign -dv` reports `Identifier=cloud.rives.agenda` and a bound Info.plist (`Info.plist entries=`, and not `Info.plist=not bound`). On the macos-15 runner, that check passed after `Scripts/sign-adhoc.sh` (the verify step printed `embedded Info.plist ok` before the unit tests compiled). Ad-hoc `codesign` can bind the embedded plist on that runner.
 
 On that macOS 26.5.1 run, before this re-sign, `check_permissions` reported `notDetermined` for Reminders and Calendar, with a full-access request attempted, `requestGranted` false, no `requestError`, and no dialog. This repository has not repeated that EventKit call after `Scripts/sign-adhoc.sh`, so the re-sign is not claimed to make the dialog appear.
 

@@ -9,7 +9,7 @@ final class PermissionDiagnosticsTests: XCTestCase {
 
     // MARK: - Status mapping
 
-    func testMapsEachNamedAuthorizationStatus() {
+    func testMapsEachNamedAuthorizationStatus() throws {
         XCTAssertEqual(AuthorizationStatusName(eventKit: .notDetermined), .notDetermined)
         XCTAssertEqual(AuthorizationStatusName(eventKit: .restricted), .restricted)
         XCTAssertEqual(AuthorizationStatusName(eventKit: .denied), .denied)
