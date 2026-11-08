@@ -13,16 +13,34 @@ concurrency:
 jobs:
   build-and-test:
     name: Build & Test (macOS)
-    runs-on: macos-14
+    # Hosted macos-14 runners were retired on 2026-11-02. A job with
+    # runs-on: macos-14 now fails before it starts:
+    # "The configuration 'macos-14-arm64-us-default' is not supported".
+    # macos-15 is the oldest hosted image that still schedules. The
+    # package deployment target remains macOS 14.
+    runs-on: macos-15
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Show Swift version
         run: swift --version
 
       - name: Build (release)
         run: swift build -c release
+
+      - name: Ad-hoc sign
+        run: ./Scripts/sign-adhoc.sh .build/release/agenda
+
+      - name: Verify embedded Info.plist
+        run: |
+          set -euo pipefail
+          python3 Scripts/verify_embedded_info_plist.py --self-test
+          BINARY=".build/release/agenda"
+          otool -s __TEXT __info_plist "$BINARY" | tee "$RUNNER_TEMP/agenda-info-plist.otool"
+          python3 Scripts/verify_embedded_info_plist.py \
+            --binary "$BINARY" \
+            --otool-output "$RUNNER_TEMP/agenda-info-plist.otool"
 
       - name: Run tests
         run: swift test

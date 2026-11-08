@@ -1,35 +1,57 @@
 import Foundation
 
+/// How the `agenda` executable should run for one invocation.
+enum AgendaCommand: Equatable {
+    case help
+    case version
+    /// Print the permission diagnostic as JSON and exit.
+    case checkPermissions(debug: Bool)
+    case serve(debug: Bool)
+}
+
 /// Agenda MCP Server
 ///
 /// An opinionated MCP server for interacting with Apple Reminders and Calendar.
 /// Designed for GTD workflows and neurodivergent users.
 @main
 struct Agenda {
-    /// Application version
+    /// Application version. Keep in sync with `CFBundleShortVersionString`
+    /// in `Sources/Agenda/Info.plist`.
     static let version = "0.2.0"
 
     static func main() async {
-        // Parse command line arguments
-        let arguments = CommandLine.arguments
-
-        if arguments.contains("--help") || arguments.contains("-h") {
+        switch command(from: CommandLine.arguments) {
+        case .help:
             printHelp()
-            return
-        }
-
-        if arguments.contains("--version") || arguments.contains("-v") {
+        case .version:
             print("Agenda MCP Server v\(version)")
-            return
+        case .checkPermissions(let debug):
+            if debug {
+                await Logger.shared.setLevel(.debug)
+            }
+            await printPermissionDiagnostic()
+        case .serve(let debug):
+            if debug {
+                await Logger.shared.setLevel(.debug)
+            }
+            await runServer()
         }
+    }
 
-        // Configure logging
-        if arguments.contains("--debug") {
-            await Logger.shared.setLevel(.debug)
+    /// Parses `CommandLine.arguments`, including the program name at index 0.
+    static func command(from arguments: [String]) -> AgendaCommand {
+        let flags = Set(arguments.dropFirst())
+        if flags.contains("--help") || flags.contains("-h") {
+            return .help
         }
-
-        // Run the server
-        await runServer()
+        if flags.contains("--version") || flags.contains("-v") {
+            return .version
+        }
+        let debug = flags.contains("--debug")
+        if flags.contains("--check-permissions") {
+            return .checkPermissions(debug: debug)
+        }
+        return .serve(debug: debug)
     }
 
     /// Prints help information.
@@ -41,9 +63,12 @@ struct Agenda {
             agenda [OPTIONS]
 
         OPTIONS:
-            -h, --help      Show this help message
-            -v, --version   Show version information
-            --debug         Enable debug logging
+            -h, --help             Show this help message
+            -v, --version          Show version information
+            --debug                Enable debug logging
+            --check-permissions    Print Reminders and Calendar authorization
+                                   as JSON, then exit. Does not list events
+                                   or reminders.
 
         DESCRIPTION:
             Agenda is a Model Context Protocol (MCP) server that provides
@@ -98,11 +123,34 @@ struct Agenda {
                 - check_permissions     Check / request Reminders & Calendar access
 
         PERMISSIONS:
-            On first run, macOS will prompt for access to Reminders and Calendar.
-            Grant access in System Settings > Privacy & Security.
+            Agenda requests full access to Reminders and Calendar. macOS
+            attributes that prompt to the app that launched this binary.
+            The controls are that app's rows in
+            System Settings > Privacy & Security > Reminders and Calendars.
+            Use --check-permissions to print the EventKit status and the
+            request result without starting the server.
 
         For more information, visit: https://github.com/apl9000/agenda
         """)
+    }
+
+    /// Prints the permission diagnostic as JSON on stdout and returns.
+    ///
+    /// Does not start the MCP server and does not list calendar or reminder
+    /// data. Failures to encode the report go to stderr without the report
+    /// body. Request failures logged by the diagnostic include only an
+    /// entity name, an error domain, and an error code.
+    static func printPermissionDiagnostic() async {
+        let diagnostic = await PermissionsHandler().diagnoseAccess()
+        do {
+            let data = try diagnostic.jsonData()
+            try FileHandle.standardOutput.write(contentsOf: data)
+            try FileHandle.standardOutput.write(contentsOf: Data("\n".utf8))
+        } catch {
+            let line = "agenda: failed to encode the permission diagnostic\n"
+            try? FileHandle.standardError.write(contentsOf: Data(line.utf8))
+            exit(1)
+        }
     }
 
     /// Runs the MCP server.

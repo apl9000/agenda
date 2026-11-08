@@ -309,7 +309,8 @@ public actor MCPServer {
     private func sendResponse(_ response: JSONRPCResponse) async {
         do {
             let json = try await jsonRPCHandler.encodeResponse(response)
-            await Logger.shared.debug("Sending: \(json)")
+            let logged = PermissionDiagnosticsLogging.redactRequestErrorDescriptions(in: json)
+            await Logger.shared.debug("Sending: \(logged)")
             print(json)
             fflush(stdout)
         } catch {
