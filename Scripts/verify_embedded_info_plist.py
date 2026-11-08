@@ -40,6 +40,19 @@ def is_hex_group(token: str) -> bool:
     return all(character in "0123456789abcdefABCDEF" for character in token)
 
 
+def otool_token_bytes(token: str) -> bytes:
+    """Turn one `otool -s` hex group back into section bytes.
+
+    On little-endian hosts (Apple silicon and Intel), `otool -s` prints each
+    full 4-byte group as a native uint32, so the bytes inside an 8-digit group
+    are reversed. A short trailing group is printed as raw bytes, in order.
+    """
+    raw = bytes.fromhex(token)
+    if len(raw) == 4:
+        return raw[::-1]
+    return raw
+
+
 def decode_otool_section(text: str) -> bytes:
     """Decode the hex dump from `otool -s __TEXT __info_plist`."""
     if "(__TEXT,__info_plist)" not in text:
@@ -66,7 +79,7 @@ def decode_otool_section(text: str) -> bytes:
             continue
         for token in tokens[1:]:
             if is_hex_group(token):
-                blob.extend(bytes.fromhex(token))
+                blob.extend(otool_token_bytes(token))
             else:
                 break
 
@@ -121,13 +134,21 @@ def assert_adhoc_and_bound(codesign_output: str) -> None:
 
 
 def format_as_otool(data: bytes) -> str:
-    """Build an `otool -s` style dump, 16 bytes per line, keys split across lines."""
+    """Build an `otool -s` dump the way little-endian macOS prints it."""
     lines = ["./agenda:", "Contents of (__TEXT,__info_plist) section"]
     address = 0x100000000
     for offset in range(0, len(data), 16):
         chunk = data[offset : offset + 16]
-        words = [chunk[index : index + 4].hex() for index in range(0, len(chunk), 4)]
-        lines.append(f"{address:016x} " + " ".join(words))
+        words: list[str] = []
+        index = 0
+        while index < len(chunk):
+            piece = chunk[index : index + 4]
+            if len(piece) == 4:
+                words.append(piece[::-1].hex())
+            else:
+                words.extend(f"{byte:02x}" for byte in piece)
+            index += 4
+        lines.append(f"{address:016x}\t" + " ".join(words))
         address += 16
     return "\n".join(lines) + "\n"
 
@@ -145,6 +166,20 @@ def run_self_test() -> None:
     payload = plistlib.dumps(plist, fmt=plistlib.FMT_XML)
     decoded = load_plist(decode_otool_section(format_as_otool(payload)))
     require_keys(decoded)
+
+    # First and last lines from a real macos-15 `otool -s` dump. Each 8-digit
+    # group is a little-endian word; the short tail is raw bytes.
+    observed = """\
+.build/release/agenda:
+Contents of (__TEXT,__info_plist) section
+000000010007f1c4	6d783f3c 6576206c 6f697372 31223d6e 
+000000010007f654	74732f3c 676e6972 2f3c0a3e 73696c70 74 3e 0a 
+"""
+    observed_bytes = decode_otool_section(observed)
+    if not observed_bytes.startswith(b"<?xml version=\"1"):
+        raise VerifyError(f"self-test: header decoded as {observed_bytes[:16]!r}")
+    if not observed_bytes.endswith(b"</plist>"):
+        raise VerifyError(f"self-test: tail decoded as {observed_bytes[-16:]!r}")
 
     try:
         decode_otool_section("./agenda:\n")
