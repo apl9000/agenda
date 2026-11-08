@@ -37,14 +37,16 @@ Agenda isn't just a thin wrapper over EventKit. On top of full CRUD it adds tool
 ```bash
 git clone https://github.com/apl9000/agenda.git
 cd agenda
-swift build -c release
+make release
 ```
 
-The binary will be at `.build/release/agenda`. Optionally install it:
+`make release` builds `.build/release/agenda` and ad-hoc signs it. Copy that signed binary if you want it on your `PATH`:
 
 ```bash
 sudo cp .build/release/agenda /usr/local/bin/
 ```
+
+Signing only updates the file you pass to `codesign`. If `/usr/local/bin/agenda` was copied before `make sign-adhoc`, copy `.build/release/agenda` over it again.
 
 ## Configuration
 

@@ -120,6 +120,21 @@ def require_keys(plist: dict) -> None:
         )
 
 
+def signing_identifiers(codesign_output: str) -> list[str]:
+    """Values of lines that are exactly `Identifier=...`.
+
+    A substring check would accept `Identifier=cloud.rives.agenda.debug`.
+    `TeamIdentifier=` does not match because the line must start with `Identifier=`.
+    """
+    identifiers: list[str] = []
+    for line in codesign_output.splitlines():
+        stripped = line.strip()
+        prefix = "Identifier="
+        if stripped.startswith(prefix):
+            identifiers.append(stripped[len(prefix) :])
+    return identifiers
+
+
 def assert_adhoc_and_bound(codesign_output: str) -> None:
     if "Info.plist=not bound" in codesign_output:
         raise VerifyError("codesign reports Info.plist=not bound")
@@ -127,9 +142,10 @@ def assert_adhoc_and_bound(codesign_output: str) -> None:
         raise VerifyError("codesign did not report Info.plist entries")
     if "(adhoc" not in codesign_output and "Signature=adhoc" not in codesign_output:
         raise VerifyError("codesign did not report an ad-hoc signature")
-    if f"Identifier={BUNDLE_IDENTIFIER}" not in codesign_output:
+    identifiers = signing_identifiers(codesign_output)
+    if identifiers != [BUNDLE_IDENTIFIER]:
         raise VerifyError(
-            f"codesign Identifier is not {BUNDLE_IDENTIFIER}; the embedded plist is not bound"
+            f"codesign Identifier lines are {identifiers!r}, expected {[BUNDLE_IDENTIFIER]!r}"
         )
 
 
@@ -221,6 +237,21 @@ Contents of (__TEXT,__info_plist) section
             pass
         else:
             raise VerifyError(f"self-test: {label} sample was accepted")
+
+    prefixed = "\n".join(
+        [
+            f"Identifier={BUNDLE_IDENTIFIER}.debug",
+            "Signature=adhoc",
+            "flags=0x2(adhoc)",
+            "Info.plist entries=11",
+        ]
+    )
+    try:
+        assert_adhoc_and_bound(prefixed)
+    except VerifyError:
+        pass
+    else:
+        raise VerifyError("self-test: prefixed identifier was accepted")
 
     print("info plist verifier self-test passed")
 

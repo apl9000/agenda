@@ -306,4 +306,63 @@ public enum PermissionDiagnosticsLogging {
     public static func requestFailedLine(entity: String, error: PermissionRequestError) -> String {
         "\(entity) full-access request failed: \(error.domain) \(error.code)"
     }
+
+    /// Placeholder written over `requestError.description` in stderr debug logs.
+    public static let redactedDescription = "[redacted]"
+
+    /// Copy of a JSON-RPC response string for stderr.
+    ///
+    /// The stdout payload is left unchanged. `requestError.description` is
+    /// replaced here because `--debug` logs the serialized response, and that
+    /// text can contain a calendar or reminder title. Domain and code stay.
+    public static func redactRequestErrorDescriptions(in responseJSON: String) -> String {
+        guard let data = responseJSON.data(using: .utf8),
+              let value = try? JSONDecoder().decode(JSONValue.self, from: data),
+              let redacted = encode(redactDescriptions(in: value)) else {
+            return responseJSON
+        }
+        return redacted
+    }
+
+    private static func redactDescriptions(in value: JSONValue) -> JSONValue {
+        switch value {
+        case .null, .bool, .int, .double:
+            return value
+        case .string(let text):
+            return redactEmbeddedJSONString(text)
+        case .array(let items):
+            return .array(items.map { redactDescriptions(in: $0) })
+        case .object(let fields):
+            var copy: [String: JSONValue] = [:]
+            for (key, nested) in fields {
+                copy[key] = redactDescriptions(in: nested)
+            }
+            if case .object(var errorFields) = copy["requestError"], errorFields["description"] != nil {
+                errorFields["description"] = .string(redactedDescription)
+                copy["requestError"] = .object(errorFields)
+            }
+            return .object(copy)
+        }
+    }
+
+    /// Tool results embed the diagnostic JSON as a string. Redact inside that string.
+    private static func redactEmbeddedJSONString(_ text: String) -> JSONValue {
+        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard trimmed.hasPrefix("{") || trimmed.hasPrefix("["),
+              let data = text.data(using: .utf8),
+              let inner = try? JSONDecoder().decode(JSONValue.self, from: data),
+              let redacted = encode(redactDescriptions(in: inner)) else {
+            return .string(text)
+        }
+        return .string(redacted)
+    }
+
+    private static func encode(_ value: JSONValue) -> String? {
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.sortedKeys]
+        guard let data = try? encoder.encode(value) else {
+            return nil
+        }
+        return String(data: data, encoding: .utf8)
+    }
 }

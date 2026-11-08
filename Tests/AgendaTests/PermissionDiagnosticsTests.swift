@@ -202,6 +202,33 @@ final class PermissionDiagnosticsTests: XCTestCase {
         XCTAssertFalse(text.contains("calendarTitle"))
     }
 
+    func testDebugResponseLogRedactsRequestErrorDescription() async throws {
+        let diagnostic = PermissionDiagnostic(
+            reminders: .afterFailure(
+                error: PermissionRequestError(
+                    domain: "EKCADErrorDomain",
+                    code: 1013,
+                    description: "Dentist appointment"
+                ),
+                status: .notDetermined,
+                rawValue: 0
+            ),
+            calendar: .notAttempted(status: .notDetermined, rawValue: 0)
+        )
+        let handler = JSONRPCHandler()
+        let toolResult = try await handler.encodeToJSONValue(ToolResult.json(try diagnostic.toJSONValue()))
+        let response = JSONRPCResponse.success(result: toolResult, id: .number(1))
+        let clientJSON = try await handler.encodeResponse(response)
+        let logged = PermissionDiagnosticsLogging.redactRequestErrorDescriptions(in: clientJSON)
+
+        XCTAssertTrue(clientJSON.contains("Dentist appointment"))
+        XCTAssertFalse(logged.contains("Dentist"))
+        XCTAssertFalse(logged.contains("appointment"))
+        XCTAssertTrue(logged.contains(PermissionDiagnosticsLogging.redactedDescription))
+        XCTAssertTrue(logged.contains("EKCADErrorDomain"))
+        XCTAssertTrue(logged.contains("1013"))
+    }
+
     func testStderrLineContainsDomainAndCodeOnly() {
         let error = PermissionRequestError(
             domain: "EKCADErrorDomain",
